@@ -6,7 +6,7 @@ The dashboard follows the supplied design reference in `docs/design/dashboard-re
 
 ## Start in two commands
 
-Requirements: Node.js 22.12+ and npm. Chrome or Edge on desktop for physical USB; localhost or HTTPS is required. No Python backend, external model downloads, GLB assets, or hosted account is required to run the dashboard or simulator.
+Requirements: Node.js 22.12+ (22.x) and npm. Chrome or Edge on desktop for physical USB; localhost or HTTPS is required. No Python backend, external model downloads, GLB assets, or hosted account is required to run the dashboard or simulator.
 
 ```sh
 npm ci
@@ -99,7 +99,7 @@ See [docs/testing.md](docs/testing.md) for the observed verification report and 
 
 ## Production build and hosting
 
-`npm run build` writes static assets to `frontend/dist`. Serve that directory over HTTPS with SPA fallback to `index.html`. `npm run preview -w frontend` previews the built output locally. `vercel.json` and static-host `_headers` / `_redirects` are provided. Check your host actually applies security headers and route fallback. The project is configured for Vercel production deployment from the GitHub main branch. Deployment results are recorded in `docs/deployment.md`.
+`npm run build` writes static assets to `frontend/dist`. Serve that directory over HTTPS with SPA fallback to `index.html`. `npm run preview -w frontend` previews the built output locally. `vercel.json` and static-host `_headers` / `_redirects` are provided. Check your host actually applies security headers and route fallback. The project is configured for Vercel production deployment. Deployment results are recorded in `docs/deployment.md`.
 
 Browser-local data is per origin and per browser profile. Export records before clearing storage or changing hostnames. This is a single-operator laboratory application, not a multi-user remote-control service. The optional Wi-Fi/FastAPI gateway was intentionally not introduced into the USB safety path.
 

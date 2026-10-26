@@ -16,3 +16,5 @@
 
 - Publication target updated to kishore-23MIC0100/THERMO-GREEN at the user's request. Included exact requested DEV_LOG.MD and README.D filenames alongside the standard GitHub README.md. Vercel production deployment requested; credentials remain outside the repository.
 - Final visual review reduced 3D component labels to a fixed readable screen size so they no longer obscure the apparatus.
+
+- Published the full project to the requested GitHub repository; application and ESP32 jobs passed in GitHub Actions. Created and linked the Vercel project with the CLI after connector permissions rejected creation. Pinned Node 22 for reproducible production builds. Vercel Git linking was unavailable, so deployment uses committed source uploaded by the CLI.
