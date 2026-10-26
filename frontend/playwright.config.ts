@@ -1,0 +1,26 @@
+import { defineConfig } from '@playwright/test';
+const deployedURL = process.env.PLAYWRIGHT_BASE_URL;
+export default defineConfig({
+  testDir: './tests',
+  timeout: 45000,
+  expect: { timeout: 10000 },
+  fullyParallel: false,
+  workers: 1,
+  retries: process.env.CI ? 1 : 0,
+  reporter: [['list'], ['html', { open: 'never' }]],
+  use: {
+    baseURL: deployedURL ?? 'http://127.0.0.1:5173',
+    viewport: { width: 1536, height: 1024 },
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
+  },
+  webServer: deployedURL
+    ? undefined
+    : {
+        command: 'npm run dev',
+        url: 'http://127.0.0.1:5173',
+        reuseExistingServer: !process.env.CI,
+        timeout: 60000,
+      },
+});

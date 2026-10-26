@@ -1,0 +1,18 @@
+{
+  "tripC": 35.5,
+  "resetMarginC": 2,
+  "setpointMarginC": 0.5,
+  "heartbeatMs": 1000,
+  "watchdogMs": 3000,
+  "staleMs": 2000,
+  "ackTimeoutMs": 1000,
+  "sampleMs": 500,
+  "dwellMs": 5000,
+  "faults": {
+    "THERMAL_TRIP": 1,
+    "SENSOR_FAULT": 2,
+    "LINK_TIMEOUT": 4,
+    "E_STOP": 8,
+    "BAD_COMMAND": 16
+  }
+}

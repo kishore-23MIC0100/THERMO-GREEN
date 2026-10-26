@@ -1,0 +1,27 @@
+{
+  "name": "thermo-green",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "workspaces": [
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "npm run dev -w frontend",
+    "build": "npm run generate && npm run build -w frontend",
+    "typecheck": "npm run typecheck -w frontend",
+    "lint": "npm run lint -w frontend",
+    "test": "npm run generate && npm run test -w frontend && npm run test:firmware",
+    "test:e2e": "npm run test:e2e -w frontend",
+    "test:firmware": "c++ -std=c++17 -Wall -Wextra -Werror -I firmware/esp32/include firmware/esp32/test/safety_test.cpp -o /tmp/thermogreen-safety-test && /tmp/thermogreen-safety-test",
+    "generate": "node scripts/generate-config.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.pio/
+.venv/
+.env*
+!.env.example
+*.local
+*.tsbuildinfo
+playwright-report/
+test-results/
+.DS_Store
+work/
+.vibe-wise/
+.vercel/
