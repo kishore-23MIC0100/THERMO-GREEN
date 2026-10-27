@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { normalizeBand } from '../hardware/controller';
+import { ANALYSIS_MODEL } from '../lib/analysis-model';
 export interface Settings {
   low: number;
   high: number;
@@ -28,7 +29,7 @@ const defaults: Settings = {
   reducedMotion: false,
   quality: 'medium',
   ollamaUrl: 'http://localhost:11434',
-  model: 'thermo-green-analyst:latest',
+  model: ANALYSIS_MODEL,
   massG: 330,
   cp: 4.184,
   simAmbient: 28,
@@ -57,7 +58,7 @@ export const useSettings = create<Settings & { update: (patch: Partial<Settings>
           // Replace the prior default/base-model selection with the project
           // profile while preserving unrelated operator preferences.
           ...(version < 2 && (!p.model || p.model === 'gemma3:1b' || p.model === 'qwen2.5:3b')
-            ? { model: 'thermo-green-analyst:latest' }
+            ? { model: ANALYSIS_MODEL }
             : {}),
         };
       },

@@ -1,6 +1,6 @@
 # Local Ollama analysis model
 
-AlgaeRhythm includes an optional, local Ollama assistant for explaining the currently recorded experiment session. The assistant has no hardware-control tools. It receives the current session summary and the operator's question; firmware remains the heater safety authority.
+AlgaeRhythm includes an optional, local Ollama assistant for explaining the currently recorded experiment session. The assistant has no hardware-control tools. It receives the current session/time range, calculated metrics, up to 24 representative temperature points from the slope window, latest telemetry with freshness, recent events, instrumentation limits, and the operator's question. Firmware remains the heater safety authority.
 
 ## Build the project profile
 
@@ -28,7 +28,7 @@ ollama run thermo-green-analyst:latest
 
 ## Connect the dashboard
 
-In **Settings → Ollama model**, enter `thermo-green-analyst:latest`. Then open **AI Research Assistant** and choose **Check Ollama**. Fresh browser settings default to this project profile; browsers with a saved model choice keep their existing selection until changed.
+In **Settings → Ollama model**, enter `thermo-green-analyst:latest`. Then open **AI Research Assistant** and choose **Check Ollama**. Fresh browser settings default to this project profile; browsers with a saved model choice keep their existing selection until changed. For this profile, the dashboard does not send a replacement system message, so the Ollama Modelfile's project instructions remain active. If an operator chooses another model, the dashboard sends the same safety and evidence instructions explicitly.
 
 For the local Vite dashboard, start Ollama with the allowed origins:
 
@@ -37,6 +37,8 @@ OLLAMA_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 ollama serve
 ```
 
 For the hosted dashboard, include its exact origin in `OLLAMA_ORIGINS` and grant the browser's local-network permission when prompted. Keep Ollama bound to loopback; never expose its API publicly. The hosted page still sends session data from the browser to the operator's configured local Ollama service.
+
+On this Mac, Ollama is configured as the per-user `com.algaerhythm.ollama-serve` LaunchAgent. It starts at login, restarts if it exits, listens only on `127.0.0.1:11434`, and allows the production dashboard plus local Vite origins. To restart it, run `launchctl kickstart -k gui/$(id -u)/com.algaerhythm.ollama-serve`. To stop and remove the auto-start service, run `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.algaerhythm.ollama-serve.plist` and then remove that plist.
 
 ## What the profile is taught
 

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Bot, Send, WifiOff } from 'lucide-react';
 import { useSettings } from '../stores/settings';
 import { useRuntime, canHeat, log } from '../stores/runtime';
-import { metrics } from '../analytics/metrics';
+import { createAnalysisContext } from '../lib/analysis-context';
+import { ANALYSIS_MODEL } from '../lib/analysis-model';
 import { streamAnswer, validateOllamaUrl } from '../lib/ollama';
 import { Badge, PanelHeading } from '../components/primitives';
 import { PageTitle } from './Operations';
@@ -12,7 +13,9 @@ export default function Assistant() {
   const [prompt, setPrompt] = useState(''),
     [answer, setAnswer] = useState(''),
     [busy, setBusy] = useState(false),
-    [status, setStatus] = useState<'unchecked' | 'online' | 'offline'>('unchecked'),
+    [status, setStatus] = useState<'unchecked' | 'ready' | 'model-missing' | 'offline'>(
+      'unchecked',
+    ),
     [error, setError] = useState(''),
     [duration, setDuration] = useState(0);
   const controller = useRef<AbortController | null>(null);
@@ -25,14 +28,23 @@ export default function Assistant() {
       });
       if (!r.ok) throw new Error(`Status ${r.status}`);
       const result = (await r.json()) as { models?: Array<{ name: string }> };
-      setStatus('online');
-      if (!result.models?.some((m) => m.name === settings.model))
+      if (!result.models?.some((m) => m.name === settings.model.trim())) {
+        setStatus('model-missing');
         setError(
-          `Ollama is reachable, but ${settings.model} is not installed. Pull the model or change Settings.`,
+          `Ollama is running, but ${settings.model.trim() || 'no model'} is not installed. Build ${ANALYSIS_MODEL} with npm run model:build or change Settings.`,
         );
+        return;
+      }
+      setStatus('ready');
     } catch (e) {
       setStatus('offline');
-      setError(e instanceof Error ? e.message : 'Ollama is unreachable');
+      setError(
+        e instanceof TypeError
+          ? 'The browser could not reach local Ollama. Check that its service is running, allow local-network access for this dashboard, and include this dashboard origin in OLLAMA_ORIGINS.'
+          : e instanceof Error
+            ? e.message
+            : 'Ollama is unreachable',
+      );
     }
   }
   async function submit(question: string) {
@@ -43,31 +55,49 @@ export default function Assistant() {
     setError('');
     const c = new AbortController();
     controller.current = c;
-    const timer = setTimeout(() => c.abort(), 120000);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      c.abort();
+    }, 120000);
     const start = performance.now();
     const samples = runtime.samples;
-    const stats = metrics(samples, settings.massG, settings.cp);
-    const context = {
-      source: runtime.mode,
-      from: samples[0] ? new Date(samples[0].timestamp).toISOString() : null,
-      to: samples.at(-1) ? new Date(samples.at(-1)!.timestamp).toISOString() : null,
-      stats,
-      lastTelemetry: runtime.telemetry,
-      sampleCount: samples.length,
-    };
+    const context = createAnalysisContext({
+      mode: runtime.mode,
+      sessionId: runtime.sessionId,
+      samples,
+      events: runtime.events,
+      telemetry: runtime.telemetry,
+      receivedAt: runtime.receivedAt,
+      now: runtime.now,
+      simSpeed: settings.simSpeed,
+      massG: settings.massG,
+      cp: settings.cp,
+      targetC: settings.high,
+    });
     try {
       await streamAnswer(
         settings.ollamaUrl,
         settings.model,
-        `You are AlgaeRhythm's local, tools-free experiment-analysis advisor. You cannot inspect hardware or issue commands; use only the session context below. Cite its source and exact time range when available. Label claims MEASURED, CALCULATED, ESTIMATED, SIMULATED, PROJECTED, UNAVAILABLE, or NOT CLAIMED, and say "insufficient data" when evidence is absent. Never invent a fault cause or readings. The MQ-135 is raw relative ADC, not calibrated ppm. Electrical power and coolant flow are not instrumented; the 40 W heater figure is nominal. The thermal vehicle is not a real server/data center. Carbon capture and algae growth are not demonstrated. Never advise bypassing firmware safety: its 35.5 °C trip and interlocks have final authority; stale telemetry, faults, or uncertainty mean keep the heater OFF. For heating rate, calculate from timestamped reactor samples and disclose sample coverage; 1.7 °C/min is only an ideal estimate for nominal 40 W and about 1,380 J/°C before losses. Candidate causes (ambient loss, hardware thermal mass, coupling, mixing/flow, sensor lag) are hypotheses unless the data distinguishes them. Session context JSON: ${JSON.stringify(context)}`,
+        context,
         question,
         setAnswer,
         c.signal,
       );
-      setStatus('online');
+      setStatus('ready');
       setDuration(performance.now() - start);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Generation failed');
+      setError(
+        c.signal.aborted
+          ? timedOut
+            ? 'Analysis timed out after 2 minutes. Check that Ollama is responsive, then retry.'
+            : 'Analysis cancelled.'
+          : e instanceof TypeError
+            ? 'The browser could not reach local Ollama. Check local-network access and the OLLAMA_ORIGINS allowlist.'
+            : e instanceof Error
+              ? e.message
+              : 'Generation failed',
+      );
       if (!c.signal.aborted) setStatus('offline');
     } finally {
       clearTimeout(timer);
@@ -84,11 +114,13 @@ export default function Assistant() {
       <div className="toolbar">
         <Badge
           claim={
-            status === 'online'
+            status === 'ready'
               ? 'LOCAL MODEL REACHABLE'
-              : status === 'offline'
-                ? 'OFFLINE'
-                : 'NOT CHECKED'
+              : status === 'model-missing'
+                ? 'MODEL NOT INSTALLED'
+                : status === 'offline'
+                  ? 'OFFLINE'
+                  : 'NOT CHECKED'
           }
         />
         <button onClick={() => void check()}>Check Ollama</button>
