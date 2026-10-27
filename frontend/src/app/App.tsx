@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { NavLink, Route, Routes, Link, useLocation } from 'react-router-dom';
 import {
   Leaf,
@@ -107,6 +107,9 @@ export default function App() {
     settings = useSettings();
   const [navOpen, setNavOpen] = useState(false);
   const location = useLocation();
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [location.pathname]);
   useEffect(() => {
     const stop = startRuntime();
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -296,7 +299,7 @@ export default function App() {
         </footer>
       </main>
       <Tour />
-      {s.notice && (
+      {s.notice && !s.telemetry?.fault && (
         <div className="toast" role="status">
           <span>{s.notice}</span>
           <button

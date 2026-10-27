@@ -51,6 +51,8 @@ test('simulation records data, acknowledges heat, trips and resets safely, expor
   await expect(
     page.locator('.status-card').filter({ hasText: 'Heater Status' }).locator('strong'),
   ).toHaveText('ON');
+  const activeScan = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(activeScan.violations).toEqual([]);
   await page.getByRole('link', { name: 'Controls', exact: true }).click();
   await page.getByRole('button', { name: 'Inject thermal trip' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'THERMAL TRIP' })).toBeVisible();
@@ -134,7 +136,7 @@ test('manual heater OFF takes ownership from a running compute workload and stay
   await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
   const power = page.getByRole('switch', { name: 'Heater power', exact: true });
   await expect(power).toBeChecked();
-  await page.getByRole('button', { name: 'Stop Heater', exact: true }).click();
+  await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await expect(power).not.toBeChecked();
   await page.getByRole('link', { name: 'Compute Demo', exact: true }).click();
   await expect(link).not.toBeChecked();
@@ -217,4 +219,71 @@ test('all routes render and mobile has no page overflow', async ({ page }) => {
   await page.getByRole('link', { name: 'Controls', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Hardware Controls' })).toBeVisible();
   await page.screenshot({ path: '../work/dashboard-mobile.png', fullPage: true });
+});
+test('record pages stay readable with data, preserve exports and filters, and reset route scroll', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start simulation', exact: true }).click();
+  const power = page.getByRole('switch', { name: 'Heater power', exact: true });
+  await expect(power).toBeEnabled();
+  await power.click();
+  await expect(power).toBeChecked();
+  await power.click();
+  await expect(power).not.toBeChecked();
+  await page.getByRole('button', { name: 'E-STOP', exact: true }).click();
+  await expect(page.locator('.fault-banner')).toContainText('E STOP');
+  await page.getByRole('link', { name: 'Experiments', exact: true }).click();
+  const table = page.getByRole('table', { name: 'Recorded sessions', exact: true });
+  await table.getByRole('button', { name: /^Simulation ·/ }).click();
+  await page.getByLabel('Experiment name', { exact: true }).fill('UI review · thermal run');
+  await page.getByRole('button', { name: 'Save name', exact: true }).click();
+  await expect(
+    table.getByRole('button', { name: 'UI review · thermal run', exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: '../work/ui-experiments.png', fullPage: true });
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.getByRole('link', { name: 'Hardware Setup', exact: true }).click();
+  const title = page.getByRole('heading', { name: 'Hardware Setup', exact: true });
+  await expect(title).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  const topbar = await page.locator('.topbar').boundingBox();
+  const heading = await title.boundingBox();
+  expect(heading!.y).toBeGreaterThanOrEqual(topbar!.height);
+  await expect(
+    page
+      .getByRole('table', { name: 'GPIO and power mapping' })
+      .getByText('DS18B20 DATA', { exact: true }),
+  ).toBeVisible();
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: '../work/ui-hardware.png', fullPage: true });
+  await page.getByRole('link', { name: 'Data Logs', exact: true }).click();
+  await expect(
+    page.getByRole('table', { name: 'Validated telemetry samples' }).locator('tbody tr').first(),
+  ).toBeVisible();
+  await page.getByRole('combobox', { name: 'Event filter', exact: true }).selectOption('command');
+  await expect(
+    page.getByRole('table', { name: 'Recorded events' }).locator('tbody tr').first(),
+  ).toContainText('command');
+  const exported = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Telemetry CSV', exact: true }).click();
+  expect((await exported).suggestedFilename()).toBe('telemetry.csv');
+  expect(
+    (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations,
+  ).toEqual([]);
+  await page.screenshot({ path: '../work/ui-logs.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ['/experiments', '/hardware', '/logs']) {
+    await page.goto(path);
+    await expect(page.locator('h1')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+  }
 });

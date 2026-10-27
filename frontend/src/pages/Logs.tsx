@@ -6,13 +6,14 @@ import { useRuntime, reportError } from '../stores/runtime';
 import { download, sessionCSV } from '../analytics/export';
 import { Badge, PanelHeading } from '../components/primitives';
 import { PageTitle } from './Operations';
+import { faultNames } from '../lib/config';
 export default function Logs() {
   const runtime = useRuntime();
   const sessions =
     useLiveQuery(() => db.sessions.orderBy('startedAt').reverse().toArray(), []) ?? [];
   const [chosen, setChosen] = useState(''),
     [filter, setFilter] = useState('all');
-  const id = chosen || runtime.sessionId;
+  const id = chosen || runtime.sessionId || sessions[0]?.id;
   const samples =
     useLiveQuery<import('../db/database').Sample[]>(
       () =>
@@ -34,11 +35,13 @@ export default function Logs() {
         title="Data Logs"
         description="Raw validated telemetry and persisted events, with explicit source provenance."
       />
-      <div className="toolbar">
+      <div className="toolbar record-toolbar">
         <label>
           Session
           <select value={chosen} onChange={(e) => setChosen(e.target.value)}>
-            <option value="">Current session</option>
+            <option value="">
+              {runtime.sessionId ? 'Current session' : 'Latest recorded session'}
+            </option>
             {sessions.map((s) => (
               <option value={s.id} key={s.id}>
                 {s.name}
@@ -67,18 +70,35 @@ export default function Logs() {
           Export events JSON
         </button>
       </div>
-      <section className="panel">
-        <PanelHeading icon={FileText} title="Events" />
-        <label className="panel-body">
-          Event filter
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-            {['all', 'system', 'command', 'ack', 'fault', 'error'].map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
-        </label>
-        <div className="table-wrap log-table">
-          <table>
+      <section className="panel records-panel">
+        <PanelHeading
+          icon={FileText}
+          title="Events"
+          subtitle={`${visible.length} of ${events.length} recorded events`}
+          action={
+            <label className="compact-filter">
+              Event filter
+              <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+                {['all', 'system', 'command', 'ack', 'fault', 'error'].map((v) => (
+                  <option key={v} value={v}>
+                    {v === 'all'
+                      ? 'All events'
+                      : v === 'ack'
+                        ? 'Acknowledgements'
+                        : v[0].toUpperCase() + v.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          }
+        />
+        <div
+          className="table-wrap log-table"
+          tabIndex={0}
+          role="region"
+          aria-label="Recorded events scroll area"
+        >
+          <table aria-label="Recorded events">
             <thead>
               <tr>
                 <th>Time</th>
@@ -90,7 +110,11 @@ export default function Logs() {
               {visible.map((e) => (
                 <tr key={e.id}>
                   <td>{new Date(e.timestamp).toLocaleTimeString()}</td>
-                  <td>{e.kind}</td>
+                  <td>
+                    <span className={`event-kind ${e.kind}`}>
+                      {e.kind === 'ack' ? 'Acknowledged' : e.kind}
+                    </span>
+                  </td>
                   <td>{e.message}</td>
                 </tr>
               ))}
@@ -105,11 +129,16 @@ export default function Logs() {
           title="Latest validated samples"
           subtitle="Up to 200 rows shown; exports include the complete session"
         />
-        <div className="table-wrap log-table">
-          <table>
+        <div
+          className="table-wrap log-table"
+          tabIndex={0}
+          role="region"
+          aria-label="Telemetry samples scroll area"
+        >
+          <table aria-label="Validated telemetry samples">
             <thead>
               <tr>
-                <th>Timestamp</th>
+                <th>Timestamp (UTC)</th>
                 <th>Reactor °C</th>
                 <th>Probe 2 °C</th>
                 <th>Gas ADC</th>
@@ -125,8 +154,22 @@ export default function Logs() {
                   <td>{s.temp?.toFixed(2) ?? 'Unavailable'}</td>
                   <td>{s.temp2?.toFixed(2) ?? 'Unavailable'}</td>
                   <td>{s.gas}</td>
-                  <td>{s.heater}</td>
-                  <td>{s.fault}</td>
+                  <td>
+                    <span
+                      className={`session-state ${s.heater ? 'recording' : ''}`}
+                      title="Firmware-reported output"
+                    >
+                      {s.heater ? 'ON' : 'OFF'}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={s.fault ? 'event-kind fault' : 'session-state'}
+                      title={faultNames(s.fault).join(', ')}
+                    >
+                      {s.fault ? `Fault ${s.fault}` : 'Clear'}
+                    </span>
+                  </td>
                   <td>
                     <Badge claim={s.source.toUpperCase()} />
                   </td>

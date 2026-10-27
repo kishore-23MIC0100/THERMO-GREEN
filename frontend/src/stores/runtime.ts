@@ -434,6 +434,7 @@ export async function disconnect() {
     mode: 'DISCONNECTED',
     transportReady: false,
     telemetry: null,
+    notice: null,
     receivedAt: 0,
     heartbeatPaused: false,
     sessionId: null,

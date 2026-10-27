@@ -1,4 +1,3 @@
-import { Square } from 'lucide-react';
 import { useId } from 'react';
 import { useRuntime, issue, canHeat, heaterBlockReason } from '../stores/runtime';
 import { useCompute } from '../compute/store';
@@ -14,6 +13,7 @@ export function HeaterPower() {
     (command) => command.status === 'pending' && command.value != null,
   );
   const busy = s.commands.some((command) => command.status === 'pending');
+  const canRequestOff = on || pending?.value === 1;
   const request = (value: 0 | 1) => {
     // A manual action takes ownership from every automatic workload source.
     useCompute.setState({ linked: false });
@@ -23,34 +23,30 @@ export function HeaterPower() {
   const state = !fresh ? 'Unavailable' : on ? 'ON' : 'OFF';
   return (
     <div className="heater-power-controls">
-      <div className="button-row">
-        <button
-          type="button"
-          role="switch"
-          aria-label="Heater power"
-          aria-checked={on}
-          aria-describedby={feedbackId}
-          className={`heater-switch ${on ? 'is-on' : ''}`}
-          disabled={on ? !connected : !canHeat() || busy}
-          onClick={() => request(on ? 0 : 1)}
-        >
-          <span className="switch-track" aria-hidden="true">
-            <i />
-          </span>
-          <span>
-            Heater power<strong>{state}</strong>
-          </span>
-        </button>
-        <button className="stop-heater" disabled={!connected} onClick={() => request(0)}>
-          <Square size={18} /> Stop Heater
-        </button>
-      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-label="Heater power"
+        aria-checked={on}
+        aria-busy={!!pending}
+        aria-describedby={feedbackId}
+        className={`heater-switch ${on ? 'is-on' : ''}`}
+        disabled={canRequestOff ? !connected : !canHeat() || busy}
+        onClick={() => request(canRequestOff ? 0 : 1)}
+      >
+        <span className="switch-track" aria-hidden="true">
+          <i />
+        </span>
+        <span>
+          Heater power<strong>{state}</strong>
+        </span>
+      </button>
       <p id={feedbackId} className="heater-feedback" aria-live="polite">
         {pending
-          ? `Requesting ${pending.value ? 'ON' : 'OFF'} — awaiting firmware confirmation. Reported state: ${state}.`
+          ? `Requesting ${pending.value ? 'ON' : 'OFF'} — awaiting firmware confirmation. Reported state: ${state}.${pending.value === 1 ? ' Select the toggle again to cancel.' : ''}`
           : !fresh || !on
             ? (heaterBlockReason() ?? 'Ready. Toggle ON to send a heater request.')
-            : 'Firmware reports ON. Toggle OFF or select Stop Heater to stop.'}
+            : 'Firmware reports ON. Toggle OFF to stop heating.'}
       </p>
       <small>
         Switch position follows fresh firmware telemetry; relay contacts and power are not

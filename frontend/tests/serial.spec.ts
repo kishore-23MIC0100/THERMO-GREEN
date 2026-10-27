@@ -84,7 +84,7 @@ test('heater toggle follows confirmed telemetry, handles rejection and mismatch,
   });
   await power.click();
   await expect(power).toBeChecked();
-  await page.getByRole('button', { name: 'Stop Heater', exact: true }).click();
+  await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await expect(power).not.toBeChecked();
   await expect(page.locator('.command-result')).toContainText('Heater OFF: acknowledged');
   await page.evaluate(() => window.serialFixture.releaseAck());
@@ -189,6 +189,32 @@ async function installSerialFixture(page: Page) {
     });
   });
 }
+test('the single heater switch can cancel ON before any ON telemetry arrives', async ({ page }) => {
+  await installSerialFixture(page);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connect ESP32', exact: true }).click();
+  const power = page.getByRole('switch', { name: 'Heater power', exact: true });
+  await expect(power).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Stop Heater', exact: true })).toHaveCount(0);
+  await page.evaluate(() => {
+    window.serialFixture.holdOn = true;
+  });
+  await power.click();
+  await expect(power).not.toBeChecked();
+  await expect(power).toBeEnabled();
+  await power.click();
+  await expect(page.locator('.heater-feedback')).toContainText('Requesting OFF');
+  await page.evaluate(() => window.serialFixture.releaseOn());
+  await expect(page.locator('.command-result')).toContainText('Heater OFF: acknowledged');
+  await expect(power).not.toBeChecked();
+  await page.waitForTimeout(1200);
+  await expect(page.locator('.error-banner')).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => window.serialFixture.writes.filter((command) => command.cmd === 'heater').at(-1)?.value,
+    ),
+  ).toBe(0);
+});
 test('Web Serial fixture validates lines, acknowledges commands, detects staleness and fails safe on missing ack', async ({
   page,
 }) => {
@@ -203,7 +229,7 @@ test('Web Serial fixture validates lines, acknowledges commands, detects stalene
   await expect(page.locator('.event-list')).toContainText('Rejected telemetry');
   await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await expect(page.locator('.command-result')).toContainText('acknowledged');
-  await page.getByRole('button', { name: 'Stop Heater', exact: true }).click();
+  await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await expect(
     page.locator('.status-card').filter({ hasText: 'Heater Status' }).locator('strong'),
   ).toHaveText('OFF');

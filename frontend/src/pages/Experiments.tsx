@@ -66,7 +66,7 @@ function SessionEditor({ session }: { session: Session }) {
 }
 export default function Experiments() {
   const navigate = useNavigate(),
-    active = useRuntime((s) => s.sessionId);
+    active = useRuntime((s) => (['LIVE', 'SIMULATED'].includes(s.mode) ? s.sessionId : null));
   const sessions =
     useLiveQuery(() => db.sessions.orderBy('startedAt').reverse().toArray(), []) ?? [];
   const [selected, setSelected] = useState<string>(''),
@@ -87,17 +87,33 @@ export default function Experiments() {
     <>
       <PageTitle
         title="Experiments"
-        description="Sessions are recorded in this browser's IndexedDB. Export scientific records before clearing browser storage."
+        description="Review, export, replay and compare experiments saved on this device. Export records before clearing browser data."
       />
-      <div className="toolbar">
-        <button onClick={() => void connect('SIMULATED')}>New simulated experiment</button>
+      <div className="toolbar record-toolbar">
+        <button className="primary" onClick={() => void connect('SIMULATED')}>
+          New simulated experiment
+        </button>
         <button onClick={() => void connect('LIVE')}>New hardware experiment</button>
         <span>Starting a new experiment safely closes the previous source.</span>
       </div>
-      <section className="panel">
-        <PanelHeading icon={NotebookPen} title="Recorded sessions" />
-        <div className="table-wrap">
-          <table>
+      <section className="panel records-panel">
+        <PanelHeading
+          icon={NotebookPen}
+          title="Recorded sessions"
+          subtitle="Select an experiment name to open its notebook"
+          action={
+            <span className="record-count">
+              {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'}
+            </span>
+          }
+        />
+        <div
+          className="table-wrap session-table"
+          tabIndex={0}
+          role="region"
+          aria-label="Recorded sessions scroll area"
+        >
+          <table aria-label="Recorded sessions">
             <thead>
               <tr>
                 <th>Experiment</th>
@@ -109,22 +125,34 @@ export default function Experiments() {
             </thead>
             <tbody>
               {sessions.map((s) => (
-                <tr key={s.id}>
+                <tr key={s.id} className={active === s.id && !s.endedAt ? 'current-session' : ''}>
                   <td>
-                    <button className="text-link" onClick={() => setSelected(s.id)}>
+                    <button
+                      className="text-link"
+                      aria-expanded={selected === s.id}
+                      onClick={() => setSelected(s.id)}
+                    >
                       {s.name}
                     </button>
                   </td>
                   <td>
                     <Badge claim={s.source.toUpperCase()} />
                   </td>
-                  <td>{new Date(s.startedAt).toLocaleString()}</td>
                   <td>
-                    {active === s.id && !s.endedAt
-                      ? 'Recording'
-                      : s.endedAt
-                        ? 'Completed'
-                        : 'Interrupted'}
+                    <time dateTime={new Date(s.startedAt).toISOString()}>
+                      {new Date(s.startedAt).toLocaleString()}
+                    </time>
+                  </td>
+                  <td>
+                    <span
+                      className={`session-state ${active === s.id && !s.endedAt ? 'recording' : s.endedAt ? 'completed' : 'interrupted'}`}
+                    >
+                      {active === s.id && !s.endedAt
+                        ? 'Recording'
+                        : s.endedAt
+                          ? 'Completed'
+                          : 'Interrupted'}
+                    </span>
                   </td>
                   <td>
                     <div className="button-row">
@@ -202,7 +230,7 @@ export default function Experiments() {
             </label>
           ))}
         </div>
-        {a && b ? (
+        {a && b && a !== b ? (
           <Suspense>
             <Chart
               samples={compareA}
@@ -213,7 +241,7 @@ export default function Experiments() {
             />
           </Suspense>
         ) : (
-          <Empty title="Select two recorded runs">
+          <Empty title="Select two different recorded runs">
             <p>Use an ambient control and heated run for a meaningful comparison.</p>
           </Empty>
         )}

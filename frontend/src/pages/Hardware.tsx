@@ -1,7 +1,23 @@
-import { Usb, Cable, TriangleAlert } from 'lucide-react';
+import { Usb, Cable, TriangleAlert, ArrowRight } from 'lucide-react';
 import { PanelHeading } from '../components/primitives';
 import { ConnectionBar } from '../components/DashboardPanels';
 import { PageTitle } from './Operations';
+function SystemPath({ title, steps, detail }: { title: string; steps: string[]; detail: string }) {
+  return (
+    <div className="system-path-card">
+      <h3>{title}</h3>
+      <ol className="path-steps">
+        {steps.map((step, index) => (
+          <li key={`${step}-${index}`}>
+            <span>{step}</span>
+            {index < steps.length - 1 && <ArrowRight size={14} aria-hidden="true" />}
+          </li>
+        ))}
+      </ol>
+      <p>{detail}</p>
+    </div>
+  );
+}
 export default function Hardware() {
   const mapping = [
     ['DS18B20 DATA', 'GPIO 4 + 4.7 kΩ pull-up to 3.3 V'],
@@ -25,11 +41,20 @@ export default function Hardware() {
           choose simulation.
         </div>
       )}
-      <div className="two-columns">
+      <div className="two-columns hardware-page-grid">
         <section className="panel">
-          <PanelHeading icon={Cable} title="GPIO & power mapping" />
-          <div className="table-wrap">
-            <table>
+          <PanelHeading
+            icon={Cable}
+            title="GPIO & power mapping"
+            subtitle="Firmware defaults · verify against the physical wiring"
+          />
+          <div
+            className="table-wrap hardware-table"
+            tabIndex={0}
+            role="region"
+            aria-label="GPIO mapping scroll area"
+          >
+            <table aria-label="GPIO and power mapping">
               <thead>
                 <tr>
                   <th>Hardware</th>
@@ -90,19 +115,27 @@ export default function Hardware() {
       </div>
       <section className="panel">
         <PanelHeading icon={Cable} title="System paths" />
-        <div className="flow-diagrams">
-          <div>
-            <h3>Fluid loop · isolated from reactor medium</h3>
-            <p>Pump → Block #1 on heater → Block #2 inside reactor → Pump</p>
-          </div>
-          <div>
-            <h3>Control & telemetry</h3>
-            <p>Browser ⇄ USB serial ⇄ ESP32 → GPIO 23 → relay → PTC heater</p>
-          </div>
-          <div>
-            <h3>Independent supply branches</h3>
-            <p>12 V / 5 A supply → fused heater branch + direct pump branch. USB → ESP32 logic.</p>
-          </div>
+        <div className="system-paths-grid">
+          <SystemPath
+            title="Closed coolant loop"
+            steps={['Pump', 'Block #1', 'Block #2', 'Pump']}
+            detail="Block #1 collects heater heat. The exchanger transfers it through an isolated stainless loop into reactor water; the fluids do not mix."
+          />
+          <SystemPath
+            title="Heater command path"
+            steps={['Dashboard', 'USB', 'ESP32', 'Relay', 'Heater']}
+            detail="GPIO 23 requests the relay state. Firmware interlocks take precedence; the dashboard does not measure contact movement or electrical power."
+          />
+          <SystemPath
+            title="Sensor feedback"
+            steps={['DS18B20 / MQ-135', 'ESP32', 'USB', 'Charts + twin']}
+            detail="115200 baud JSON telemetry supplies temperature, raw gas ADC and firmware-reported heater state."
+          />
+          <SystemPath
+            title="Separate power branches"
+            steps={['12 V supply', 'Fused heater + direct pump']}
+            detail="USB powers ESP32 logic. The pump runs from its own direct 12 V branch and has no software switch or measured flow."
+          />
         </div>
       </section>
       <section className="panel">

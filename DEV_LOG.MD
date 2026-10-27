@@ -62,3 +62,14 @@
 - Added browser checks for acknowledgement delays, cancellation, rejection, state mismatch, manual ownership beyond dwell, and zero unexpected console errors. Unit coverage is now 64 cases plus native firmware safety tests. Final browser/cloud/public verification is reported with the release result.
 - The user confirmed physical relay checks have not been performed. RELAY_POLARITY_VERIFIED remains false in both firmware variants. No hardware was flashed, unlocked or energized by this update.
 - Local release checks passed: strict types, lint, formatting, production build, 64 unit tests, native C++ safety tests, and all 12 browser scenarios using the production headers and software renderer.
+- GitHub run 40487700324 passed both jobs, including all 12 browser scenarios. Public checks verified all scenarios; one HTTP navigation timeout passed on targeted retry. Real local Ollama inference and its production-origin CORS response were also checked.
+- Final visual review identified pale Recent Events text inherited from the dark theme. Corrected the child text/time colors and extended the accessibility scan to an active session with heater ON and populated events.
+
+## 27 October 2026 — records pages and single heater toggle
+
+- Applied the user's follow-up screenshots to Experiments, Hardware Setup and Data Logs. Replaced inherited dark table styling and pale cell text with readable light headers, row separators, hover states and status labels. Added compact event filtering, session counts, a notebook affordance, and explicit UTC sample timestamps.
+- Replaced the hardware page's dark text paths with readable visual flow cards and corrected the exchanger/isolated reactor-loop description. Kept firmware pin mapping and physical commissioning requirements.
+- Made the fixed header opaque and reset scroll on route changes, so the next page opens with its title and fault information visible beneath the header.
+- Removed the separate Stop Heater button as requested. The single telemetry-driven switch can send OFF while ON is pending, including before any ON telemetry arrives. Header E-STOP remains independent. The physical relay verification flag stays false.
+- Added coverage for pending-ON cancellation using the single switch and for populated record pages: notebook rename, event filtering, CSV export, contrast scans, route scroll reset, and mobile overflow.
+- Final local verification passed: production build, types, lint, formatting, 64 unit tests, native firmware safety checks and all 14 browser scenarios. Populated records pages and the active heater state pass the tested WCAG 2 A/AA scans. Reviewed actual screenshots of all three updated pages.
