@@ -64,6 +64,7 @@ export function runCompute() {
           r.mode === 'DISCONNECTED' ||
           r.mode === 'REPLAY' ||
           r.telemetry?.fault ||
+          r.error ||
           document.hidden
         ) {
           useCompute.setState({ linked: false });

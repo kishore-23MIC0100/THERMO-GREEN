@@ -53,3 +53,12 @@
 - The first cloud run of the USB release compiled both firmware variants and passed application static/unit/build checks, but its browser suite exposed excessive rendering cost on the Linux software renderer. Local browser success did not establish cloud success.
 - Added separate low-detail GLBs (approximately 580 KB versus 2.7 MB), simpler low-quality materials and lighting, memoized apparatus assets, stable tube curves, and off-screen canvas suspension. Detailed medium/high assets remain available. Heartbeat, watchdog, stale-data, acknowledgement and trip limits are unchanged.
 - Made Playwright explicitly use SwiftShader and reran all 10 browser scenarios locally: passed. Cloud verification is recorded with the follow-up commit's GitHub Actions result.
+
+## 27 October 2026 — final heater control and production-policy checks
+
+- The software-renderer follow-up passed both GitHub Actions jobs (run 40461732876) and was promoted. Public-site testing then found a real WebAssembly CSP failure and one cold asset-navigation timeout. Local dev-server testing had not exercised the deployment security policy.
+- Allowed WebAssembly compilation specifically, retained the JavaScript eval restriction, emitted fonts as same-origin files, and removed unsupported IPv6 CSP syntax. Browser tests now build and serve the production app with the deployment's actual headers.
+- Added a telemetry-driven heater switch with pending feedback and an always-available connected OFF action. Accepted acknowledgements must match the commanded heater/reset state. Rejection, timeout or mismatch requests OFF. OFF cancels pending ON commands and manual actions unlink compute demand, preventing automatic restart.
+- Added browser checks for acknowledgement delays, cancellation, rejection, state mismatch, manual ownership beyond dwell, and zero unexpected console errors. Unit coverage is now 64 cases plus native firmware safety tests. Final browser/cloud/public verification is reported with the release result.
+- The user confirmed physical relay checks have not been performed. RELAY_POLARITY_VERIFIED remains false in both firmware variants. No hardware was flashed, unlocked or energized by this update.
+- Local release checks passed: strict types, lint, formatting, production build, 64 unit tests, native C++ safety tests, and all 12 browser scenarios using the production headers and software renderer.

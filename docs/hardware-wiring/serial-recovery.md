@@ -32,6 +32,14 @@ The reported photos show fresh reactor/ADC readings, a latched `SENSOR FAULT + L
 
 A reported `heater=0/1` is firmware's commanded output state. It is not independent contact feedback, measured electrical power, or proof of coolant circulation.
 
+## Heater switch behavior
+
+After commissioning, fresh fault-free v2 telemetry must advertise `armed=true` and the matching trip before the dashboard permits ON. The **Heater power** switch sends an identified command and shows a pending request until firmware reports its state. An accepted acknowledgement must include the requested heater state; a mismatch is a failed command, not a successful ON indication. The switch never claims independent contact feedback.
+
+**Stop Heater** can be selected while ON is pending. It cancels the earlier ON request, sends OFF without waiting for restart dwell, and removes compute's automatic heater coupling. Late acknowledgement of the cancelled request cannot overwrite the latest command result with a spurious timeout. Fresh telemetry still determines the displayed state; stale/disconnected readings become unavailable. A rejected, timed-out, or inconsistent command requests OFF and explains the problem rather than hiding it.
+
+The operator reported that physical relay verification has **not** been performed. Both firmware variants therefore retain `RELAY_POLARITY_VERIFIED=false`; this software update does not unlock or flash the real relay. Use a labelled simulation to demonstrate ON/OFF while the physical commissioning remains pending.
+
 ## Standalone Arduino sketch
 
 The supplied sketch is preserved at `firmware/arduino/AlgaeRhythm/AlgaeRhythm.ino`, including:

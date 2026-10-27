@@ -14,9 +14,12 @@ test.beforeEach(async ({ page }) => {
 test('starts disconnected, renders actual 3D and accessible reference layout', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '3D Digital Twin', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeDisabled();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeDisabled();
   await expect(page.getByText('Not instrumented', { exact: true })).toBeVisible();
   await expect(page.locator('.scene-canvas canvas')).toBeVisible();
   await page.getByRole('button', { name: 'Exploded', exact: true }).click();
@@ -42,8 +45,8 @@ test('simulation records data, acknowledges heat, trips and resets safely, expor
   await expect(
     page.getByText('SIMULATION — NO PHYSICAL DEVICE CONNECTED', { exact: false }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Start Heater', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeEnabled();
+  await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await expect(page.locator('.command-result')).toContainText('acknowledged');
   await expect(
     page.locator('.status-card').filter({ hasText: 'Heater Status' }).locator('strong'),
@@ -51,13 +54,13 @@ test('simulation records data, acknowledges heat, trips and resets safely, expor
   await page.getByRole('link', { name: 'Controls', exact: true }).click();
   await page.getByRole('button', { name: 'Inject thermal trip' }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'THERMAL TRIP' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeDisabled();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Reset latched fault' })).toBeDisabled();
   await page.getByRole('button', { name: 'Restore sensor & cool down' }).click();
   await page.getByRole('button', { name: 'Reset latched fault' }).click();
   await page.getByRole('button', { name: 'Confirm reset' }).click();
   await expect(page.locator('.fault-banner')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Start Heater', exact: true }).click();
+  await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await page.getByRole('button', { name: 'Pause heartbeat', exact: true }).click();
   await expect(page.locator('.fault-banner')).toContainText('LINK TIMEOUT', { timeout: 10000 });
   await page.getByRole('button', { name: 'Resume heartbeat', exact: true }).click();
@@ -70,13 +73,13 @@ test('simulation records data, acknowledges heat, trips and resets safely, expor
   await page.getByRole('button', { name: /^Replay Simulation/ }).click();
   await expect(page.locator('.source-banner.replay')).toBeVisible();
   await expect(page.getByRole('slider', { name: 'Replay position' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeDisabled();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeDisabled();
 });
 test('hidden tab loses heartbeat and E-stop latches', async ({ page }) => {
   await page.goto('/control');
   await page.getByRole('button', { name: 'Start simulation', exact: true }).first().click();
-  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Start Heater', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeEnabled();
+  await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await page.evaluate(() => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
     document.dispatchEvent(new Event('visibilitychange'));
@@ -119,6 +122,30 @@ test('real local compute executes and stops without energizing hardware', async 
   await expect(page.getByRole('button', { name: 'Run compute', exact: true })).toBeVisible();
   await expect(page.locator('.header-status')).toContainText('DISCONNECTED');
 });
+test('manual heater OFF takes ownership from a running compute workload and stays OFF', async ({
+  page,
+}) => {
+  await page.goto('/compute');
+  await page.getByRole('button', { name: 'Start simulation', exact: true }).click();
+  await page.getByRole('button', { name: 'Run compute', exact: true }).click();
+  const link = page.getByRole('checkbox', { name: 'Link compute workload to heater demand' });
+  await expect(link).toBeEnabled();
+  await link.check();
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  const power = page.getByRole('switch', { name: 'Heater power', exact: true });
+  await expect(power).toBeChecked();
+  await page.getByRole('button', { name: 'Stop Heater', exact: true }).click();
+  await expect(power).not.toBeChecked();
+  await page.getByRole('link', { name: 'Compute Demo', exact: true }).click();
+  await expect(link).not.toBeChecked();
+  await expect(page.getByRole('button', { name: 'Stop compute', exact: true })).toBeVisible();
+  // The compute worker remains active past the restart dwell, but its demand
+  // must not take control back from the operator's OFF request.
+  await page.waitForTimeout(5500);
+  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  await expect(power).not.toBeChecked();
+  await expect(page.locator('.error-banner')).toHaveCount(0);
+});
 test('training reports a real learning curve and converges without heater control', async ({
   page,
 }) => {
@@ -149,13 +176,13 @@ test('requested target spans 25–50 while retaining the configured hardware cei
   await target.fill('25');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await expect(page.getByText(/Applied ceiling: 25.0 °C/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeDisabled();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeDisabled();
   await page.getByRole('button', { name: 'Start simulation', exact: true }).click();
   await expect(target).toHaveValue('25');
   await target.fill('35');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Start Heater', exact: true }).click();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeEnabled();
+  await page.getByRole('switch', { name: 'Heater power', exact: true }).click();
   await expect(
     page.locator('.status-card').filter({ hasText: 'Heater Status' }).locator('strong'),
   ).toHaveText('ON');

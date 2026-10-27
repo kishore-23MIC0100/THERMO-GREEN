@@ -14,6 +14,7 @@ const valid: Telemetry = {
   trip_c: SAFETY.tripC,
 };
 beforeEach(() => {
+  Object.defineProperty(document, 'hidden', { configurable: true, value: false });
   useSettings.setState({ low: 32, high: 35 });
   useRuntime.setState({
     ...useRuntime.getInitialState(),
@@ -26,6 +27,10 @@ beforeEach(() => {
   });
 });
 describe('runtime heating gate', () => {
+  it('does not enable heating from a hidden browser tab', () => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    expect(canHeat()).toBe(false);
+  });
   it('allows an explicit safe reset while preserving the unverified relay lock', () => {
     Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     useRuntime.setState({ telemetry: { ...valid, fault: 6, armed: false } });

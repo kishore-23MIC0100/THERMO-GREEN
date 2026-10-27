@@ -9,7 +9,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: deployedURL ?? 'http://127.0.0.1:5173',
+    baseURL: deployedURL ?? 'http://127.0.0.1:4173',
     viewport: { width: 1536, height: 1024 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -20,9 +20,9 @@ export default defineConfig({
   webServer: deployedURL
     ? undefined
     : {
-        command: 'npm run dev',
-        url: 'http://127.0.0.1:5173',
-        reuseExistingServer: !process.env.CI,
+        command: 'npm run build && npm run preview',
+        url: 'http://127.0.0.1:4173',
+        reuseExistingServer: false,
         timeout: 60000,
       },
 });

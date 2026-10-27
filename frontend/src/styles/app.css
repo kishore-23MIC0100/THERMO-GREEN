@@ -1094,6 +1094,53 @@ summary:focus-visible {
   margin: 0;
   min-height: 14px;
 }
+.heater-power-controls {
+  display: grid;
+  gap: 7px;
+}
+.heater-switch {
+  gap: 9px;
+  justify-content: flex-start;
+}
+.heater-switch > span:last-child {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+.heater-switch strong {
+  font-size: 12px;
+}
+.switch-track {
+  display: inline-flex;
+  align-items: center;
+  width: 36px;
+  height: 22px;
+  padding: 3px;
+  background: #b9cbd4;
+  border-radius: 15px;
+  flex-shrink: 0;
+}
+.switch-track i {
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+}
+.heater-switch.is-on .switch-track {
+  background: #008461;
+}
+.heater-switch.is-on .switch-track i {
+  transform: translateX(14px);
+}
+.heater-feedback {
+  font-size: 10px;
+  margin: 0;
+  min-height: 28px;
+}
+.heater-power-controls > small {
+  font-size: 9px;
+  line-height: 1.5;
+}
 .event-list {
   padding: 4px 12px 13px;
   max-height: 185px;

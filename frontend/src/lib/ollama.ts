@@ -29,11 +29,11 @@ export function validateOllamaUrl(raw: string) {
   const url = new URL(raw);
   if (
     !['http:', 'https:'].includes(url.protocol) ||
-    !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+    !['localhost', '127.0.0.1'].includes(url.hostname) ||
     url.username ||
     url.password
   )
-    throw new Error('Use a local Ollama URL (localhost, 127.0.0.1, or [::1]) without credentials.');
+    throw new Error('Use a local Ollama URL (localhost or 127.0.0.1) without credentials.');
   return url.origin;
 }
 export async function streamAnswer(

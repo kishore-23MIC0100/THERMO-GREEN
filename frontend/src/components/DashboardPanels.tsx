@@ -32,6 +32,7 @@ import {
 } from '../stores/runtime';
 import { useSettings } from '../stores/settings';
 import { faultDetails } from '../hardware/diagnostics';
+import { HeaterPower } from './HeaterPower';
 import { useCompute, configureCompute, runCompute, stopCompute } from '../compute/store';
 const TelemetryChart = lazy(() => import('./Charts'));
 export function stopAll() {
@@ -308,31 +309,7 @@ export function QuickControls() {
     <section className="panel">
       <PanelHeading icon={Settings2} title="Quick Controls" />
       <div className="panel-body controls-body">
-        <div className="button-row">
-          <button
-            className="start-heater"
-            disabled={!canHeat() || pending}
-            onClick={() => {
-              useRuntime.setState({ auto: false });
-              void issue({ cmd: 'heater', value: 1 });
-            }}
-          >
-            <Play size={18} />
-            Start Heater
-          </button>
-          <button
-            className="stop-heater"
-            disabled={!online}
-            onClick={() => {
-              useRuntime.setState({ auto: false, burstUntil: 0 });
-              configureCompute({ linked: false });
-              void issue({ cmd: 'heater', value: 0 });
-            }}
-          >
-            <Square size={18} />
-            Stop Heater
-          </button>
-        </div>
+        <HeaterPower />
         <label>
           Requested target (25–50 °C)
           <div className="inline-field">
@@ -375,7 +352,7 @@ export function QuickControls() {
         )}
         {s.telemetry?.fault ? (
           <>
-            <button disabled={!isResettable()} onClick={() => setConfirm(true)}>
+            <button disabled={!isResettable() || pending} onClick={() => setConfirm(true)}>
               Reset latched fault
             </button>
             <small>
