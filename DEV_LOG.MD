@@ -18,3 +18,9 @@
 - Final visual review reduced 3D component labels to a fixed readable screen size so they no longer obscure the apparatus.
 
 - Published the full project to the requested GitHub repository; application and ESP32 jobs passed in GitHub Actions. Created and linked the Vercel project with the CLI after connector permissions rejected creation. Pinned Node 22 for reproducible production builds. Vercel Git linking was unavailable, so deployment uses committed source uploaded by the CLI.
+
+## 27 October 2026
+
+- Added `thermo-green-analyst:latest`, a reproducible local Ollama profile based on `qwen2.5:3b`, with AlgaeRhythm safety rules, evidence labels, thermal analysis guidance, and worked examples. This is instruction/prompt tuning through an Ollama Modelfile; it does not update Qwen's model weights.
+- Updated the assistant to use project-specific evidence boundaries, set the profile as the fresh-install model, and migrate previous default/base-model selections while preserving other saved settings. Added local build, setup, and limitations documentation.
+- Built the profile locally and verified real inference for insufficient thermal data, accelerated simulation labeling, and raw MQ-135 limits. `npm run build` passed. Physical hardware behavior and sensor calibration remain unverified.

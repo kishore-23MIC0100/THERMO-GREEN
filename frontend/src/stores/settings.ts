@@ -28,7 +28,7 @@ const defaults: Settings = {
   reducedMotion: false,
   quality: 'medium',
   ollamaUrl: 'http://localhost:11434',
-  model: 'gemma3:1b',
+  model: 'thermo-green-analyst:latest',
   massG: 330,
   cp: 4.184,
   simAmbient: 28,
@@ -49,7 +49,18 @@ export const useSettings = create<Settings & { update: (patch: Partial<Settings>
     }),
     {
       name: 'algaerhythm-settings',
-      version: 1,
+      version: 2,
+      migrate: (persisted, version) => {
+        const p = persisted as Partial<Settings>;
+        return {
+          ...p,
+          // Replace the prior default/base-model selection with the project
+          // profile while preserving unrelated operator preferences.
+          ...(version < 2 && (!p.model || p.model === 'gemma3:1b' || p.model === 'qwen2.5:3b')
+            ? { model: 'thermo-green-analyst:latest' }
+            : {}),
+        };
+      },
       merge: (persisted, current) => {
         const p = persisted as Partial<Settings>;
         return {

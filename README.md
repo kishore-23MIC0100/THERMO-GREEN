@@ -68,16 +68,19 @@ Detailed architecture: [docs/architecture/README.md](docs/architecture/README.md
 
 ## Optional local language model
 
-Install [Ollama](https://ollama.com), then:
+Install [Ollama](https://ollama.com), then pull the base model and build the project-specific local profile from the repository root:
 
 ```sh
-ollama pull gemma3:1b
+ollama pull qwen2.5:3b
+npm run model:build
 OLLAMA_ORIGINS=http://localhost:5173,http://127.0.0.1:5173 ollama serve
 ```
 
-For the macOS app, set `launchctl setenv OLLAMA_ORIGINS "http://localhost:5173,http://127.0.0.1:5173"` and restart Ollama. Choose the model in Settings and use **Check Ollama**. Only loopback URLs are accepted. The assistant never receives actuator tools; the operator separately requests any response-length workload burst. Real Ollama inference is unverified unless a local server/model is actually running.
+In **Settings → Ollama model**, choose `thermo-green-analyst:latest`, then use **Check Ollama**. For the macOS app, set `launchctl setenv OLLAMA_ORIGINS "https://thermo-green.vercel.app,http://localhost:5173,http://127.0.0.1:5173"` and restart Ollama. The assistant never receives actuator tools; the operator separately requests any response-length workload burst.
 
-Hosted HTTPS pages may need browser local-network permission and an exact Ollama origin allowlist. Localhost is the recommended demo setup. Do not expose Ollama publicly.
+The project profile is instruction/prompt tuned with safety rules and worked examples; it does not fine-tune or update Qwen model weights. See [docs/analysis-model.md](docs/analysis-model.md) and [ollama/Modelfile](ollama/Modelfile) for the full setup and analysis boundaries.
+
+Hosted HTTPS pages may need browser local-network permission and an exact Ollama origin allowlist. Keep Ollama bound to loopback; do not expose its API publicly. Session data sent to the assistant stays on the configured local Ollama service.
 
 ## Verify
 
