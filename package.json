@@ -20,7 +20,8 @@
     "generate": "node scripts/generate-config.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "model:build": "ollama create thermo-green-analyst:latest -f ollama/Modelfile"
+    "model:build": "ollama create thermo-green-analyst:latest -f ollama/Modelfile",
+    "models:build": "node scripts/models/build-assets.mjs"
   },
   "devDependencies": {
     "prettier": "3.6.2"

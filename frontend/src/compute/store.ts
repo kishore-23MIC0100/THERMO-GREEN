@@ -9,6 +9,8 @@ export interface ComputeStats {
   loss: number | null;
   operations: number;
   kind: 'inference' | 'training';
+  lossHistory: Array<{ step: number; loss: number }>;
+  complete: boolean;
 }
 interface ComputeState {
   running: boolean;
@@ -30,7 +32,7 @@ export const useCompute = create<ComputeState>(() => ({
 }));
 let worker: Worker | null = null;
 export function configureCompute(patch: Partial<Pick<ComputeState, 'load' | 'kind' | 'linked'>>) {
-  useCompute.setState(patch);
+  useCompute.setState({ ...patch, ...(patch.kind ? { stats: null, history: [] } : {}) });
   const s = useCompute.getState();
   worker?.postMessage({ cmd: 'load', load: s.load, kind: s.kind });
   if (patch.linked === false) {
@@ -44,8 +46,17 @@ export function runCompute() {
     worker.onmessage = (e: MessageEvent<ComputeStats>) => {
       useCompute.setState((s) => ({
         stats: e.data,
+        ...(e.data.complete ? { running: false } : {}),
         history: [...s.history, e.data.throughput].slice(-18),
       }));
+      if (e.data.complete) {
+        stopCompute();
+        log(
+          'system',
+          `Training converged after ${e.data.jobs} epochs; MSE ${e.data.loss?.toExponential(3)}.`,
+        );
+        return;
+      }
       const s = useCompute.getState();
       const r = useRuntime.getState();
       if (s.linked && s.running) {

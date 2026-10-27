@@ -19,6 +19,7 @@ import {
 import { Badge, PanelHeading, useReading, tempDisplay, Confirm, Empty } from './primitives';
 import { Sparkline } from './Charts';
 import { SAFETY, faultNames } from '../lib/config';
+import { connectionStatus } from '../lib/connection-status';
 import {
   useRuntime,
   connect,
@@ -44,10 +45,12 @@ export function SystemStatus() {
     <section className="panel system-panel">
       <PanelHeading icon={Activity} title="System Status" />
       <div className="status-summary">
-        <Badge claim={s.mode} />
+        <Badge claim={connectionStatus(s)} />
         <span>
           {s.mode === 'LIVE'
-            ? 'ESP32 via USB Serial (115200 baud)'
+            ? s.telemetry
+              ? 'ESP32 via USB Serial (115200 baud)'
+              : 'USB selected · waiting for valid sensor data'
             : s.mode === 'SIMULATED'
               ? 'Thermal model worker'
               : s.mode === 'REPLAY'
@@ -295,7 +298,7 @@ export function ReactorModes() {
 export function QuickControls() {
   const s = useRuntime(),
     settings = useSettings();
-  const [target, setTarget] = useState(settings.high),
+  const [target, setTarget] = useState(settings.requestedTargetC),
     [confirm, setConfirm] = useState(false);
   const online = ['LIVE', 'SIMULATED'].includes(s.mode),
     pending = s.commands.some((c) => c.status === 'pending');
@@ -329,21 +332,27 @@ export function QuickControls() {
           </button>
         </div>
         <label>
-          Operating ceiling (°C)
+          Requested target (25–50 °C)
           <div className="inline-field">
             <input
-              aria-label="Operating ceiling in Celsius"
+              aria-label="Requested target in Celsius"
               type="number"
-              min="15.5"
-              max={SAFETY.tripC - SAFETY.setpointMarginC}
+              min="25"
+              max="50"
               step="0.5"
               value={target}
               onChange={(e) => setTarget(Number(e.target.value))}
             />
             <button
               onClick={() => {
-                settings.update({ high: target });
-                setTarget(useSettings.getState().high);
+                const requested = Math.max(25, Math.min(50, Number.isFinite(target) ? target : 35));
+                const effective = Math.min(requested, SAFETY.tripC - SAFETY.setpointMarginC);
+                settings.update({
+                  requestedTargetC: requested,
+                  high: effective,
+                  low: effective - 3,
+                });
+                setTarget(requested);
               }}
             >
               Apply
@@ -351,7 +360,9 @@ export function QuickControls() {
           </div>
         </label>
         <small>
-          Firmware trip is fixed at {SAFETY.tripC} °C. The operating ceiling stays below it.
+          Applied ceiling: {settings.high.toFixed(1)} °C · Firmware trip: {SAFETY.tripC} °C.
+          {settings.requestedTargetC > settings.high &&
+            ' Higher requests are limited by the current hardware safety configuration.'}
         </small>
         {s.telemetry?.armed === false && (
           <p className="warning-text">

@@ -5,6 +5,7 @@ import { ANALYSIS_MODEL } from '../lib/analysis-model';
 export interface Settings {
   low: number;
   high: number;
+  requestedTargetC: number;
   dwellMs: number;
   baud: number;
   units: 'C' | 'F';
@@ -23,6 +24,7 @@ export interface Settings {
 const defaults: Settings = {
   low: 32,
   high: 35,
+  requestedTargetC: 35,
   dwellMs: 5000,
   baud: 115200,
   units: 'C',
@@ -45,7 +47,13 @@ export const useSettings = create<Settings & { update: (patch: Partial<Settings>
       update: (patch) =>
         set((s) => {
           const merged = { ...s, ...patch };
-          return { ...patch, ...normalizeBand(merged.low, merged.high) };
+          return {
+            ...patch,
+            requestedTargetC: Number.isFinite(merged.requestedTargetC)
+              ? Math.max(25, Math.min(50, merged.requestedTargetC))
+              : 35,
+            ...normalizeBand(merged.low, merged.high),
+          };
         }),
     }),
     {
@@ -67,6 +75,10 @@ export const useSettings = create<Settings & { update: (patch: Partial<Settings>
         return {
           ...current,
           ...p,
+          requestedTargetC: Math.max(
+            25,
+            Math.min(50, p.requestedTargetC ?? p.high ?? defaults.high),
+          ),
           ...normalizeBand(p.low ?? defaults.low, p.high ?? defaults.high),
         };
       },

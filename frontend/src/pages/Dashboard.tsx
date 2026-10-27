@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import {
   SystemStatus,
   WorkloadPanel,
@@ -8,7 +8,7 @@ import {
   RecentEvents,
 } from '../components/DashboardPanels';
 import { useRuntime, seek, playReplay } from '../stores/runtime';
-const TwinScene = lazy(() => import('../digital-twin/Scene'));
+import { TwinScene } from '../digital-twin/LazyTwin';
 export default function Dashboard() {
   const s = useRuntime();
   return (

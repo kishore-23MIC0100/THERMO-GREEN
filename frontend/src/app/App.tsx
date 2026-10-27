@@ -27,8 +27,9 @@ import { disposeCompute } from '../compute/store';
 import { Badge, ErrorBoundary } from '../components/primitives';
 import { ConnectionBar, FaultBanner, stopAll } from '../components/DashboardPanels';
 import { SAFETY } from '../lib/config';
+import { connectionStatus } from '../lib/connection-status';
 const Dashboard = lazy(() => import('../pages/Dashboard'));
-const TwinScene = lazy(() => import('../digital-twin/Scene'));
+import { TwinScene } from '../digital-twin/LazyTwin';
 const Monitor = lazy(() => import('../pages/Operations').then((m) => ({ default: m.Monitor })));
 const Controls = lazy(() => import('../pages/Operations').then((m) => ({ default: m.Controls })));
 const Analytics = lazy(() => import('../pages/Operations').then((m) => ({ default: m.Analytics })));
@@ -151,7 +152,7 @@ export default function App() {
           AI Waste Heat → Carbon Capture <small>Research pathway · capture not demonstrated</small>
         </span>
         <div className="header-status">
-          <Badge claim={s.busy ? 'CONNECTING' : stale ? 'STALE' : s.mode} />
+          <Badge claim={connectionStatus(s)} />
           <span>
             <Usb size={16} />
             {s.mode === 'LIVE'

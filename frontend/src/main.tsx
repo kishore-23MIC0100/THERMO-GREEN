@@ -13,7 +13,8 @@ import { ErrorBoundary } from './components/primitives';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
+      {/* Live external-store updates must not interrupt a deferred route switch. */}
+      <BrowserRouter useTransitions={false}>
         <App />
       </BrowserRouter>
     </ErrorBoundary>

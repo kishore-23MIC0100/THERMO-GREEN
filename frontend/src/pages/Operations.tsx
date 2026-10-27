@@ -23,6 +23,7 @@ import { download, sessionCSV } from '../analytics/export';
 import { metrics } from '../analytics/metrics';
 import { useSettings } from '../stores/settings';
 import { useCompute } from '../compute/store';
+import { TrainingLoss } from '../compute/TrainingLoss';
 const Chart = lazy(() => import('../components/Charts'));
 export function PageTitle({ title, description }: { title: string; description: string }) {
   return (
@@ -386,8 +387,14 @@ export function Compute() {
         />
         <Metric
           label="Compute time"
-          value={c.stats ? (c.stats.computeMs / 1000).toFixed(2) : null}
-          unit="s"
+          value={
+            c.stats
+              ? c.stats.computeMs < 1000
+                ? c.stats.computeMs.toFixed(2)
+                : (c.stats.computeMs / 1000).toFixed(2)
+              : null
+          }
+          unit={c.stats && c.stats.computeMs < 1000 ? 'ms' : 's'}
           claim="MEASURED"
           detail="Accumulated worker execution time from performance.now()"
         />
@@ -411,6 +418,7 @@ export function Compute() {
           detail="Comes from the separately selected telemetry source"
         />
       </div>
+      <TrainingLoss />
       <section className="panel">
         <PanelHeading icon={Cpu} title="What is actually running?" />
         <div className="panel-body">

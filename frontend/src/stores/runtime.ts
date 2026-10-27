@@ -201,13 +201,14 @@ export async function issue(command: Command): Promise<boolean> {
 }
 export function canHeat() {
   const s = useRuntime.getState(),
-    t = s.telemetry;
+    t = s.telemetry,
+    ceiling = useSettings.getState().high;
   return (
     !!t &&
     ['LIVE', 'SIMULATED'].includes(s.mode) &&
     s.now - s.receivedAt <= SAFETY.staleMs &&
     t.temp !== null &&
-    t.temp < SAFETY.tripC &&
+    t.temp < Math.min(ceiling, SAFETY.tripC - SAFETY.setpointMarginC) &&
     (t.temp2 == null || t.temp2 < SAFETY.tripC) &&
     !t.fault &&
     t.v === 2 &&
@@ -398,8 +399,18 @@ export function startRuntime() {
       void transport.send({ cmd: 'heartbeat' }).catch(reportError);
     }
     const stale = now - s.receivedAt > SAFETY.staleMs;
+    const settings = useSettings.getState();
+    if (
+      s.telemetry?.heater &&
+      !s.commands.some((c) => c.status === 'pending') &&
+      (stale || s.telemetry.temp == null || s.telemetry.temp >= settings.high)
+    ) {
+      useRuntime.setState({ auto: false, burstUntil: 0 });
+      log('system', 'Operating ceiling or telemetry guard requested heater OFF.');
+      void issue({ cmd: 'heater', value: 0 });
+      return;
+    }
     if (s.auto && s.telemetry && !s.commands.some((c) => c.status === 'pending')) {
-      const settings = useSettings.getState();
       const request =
         !document.hidden &&
         (s.burstUntil > now || demand(s.profile, s.customDuty, now - startedAt));

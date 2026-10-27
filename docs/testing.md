@@ -48,3 +48,10 @@ Desktop test viewport: 1536×1024. Mobile: 390×844. Additional in-app visual in
 | Public production deployment | NOT TESTED | Static build and deployment configuration provided; no deployment performed |
 
 No feature is marked VERIFIED ON HARDWARE. A mock serial port is not a physical device, a firmware build is not a successful flash, and a simulator trip does not validate relay wiring. Follow `docs/hardware-wiring/README.md` before energizing the real heater.
+
+
+## 27 October 2026 update
+
+The earlier table is the original baseline report. The light digital twin rebuild adds local GLB assets and browser coverage for active-stream navigation/focus/visibility, 25–50 °C requested targets with an effective safe ceiling, manual ceiling shutdown, and training-loss convergence. Unit coverage now totals 58 passing tests, and the native firmware safety suite passes. The final browser-run result is recorded in the development log. Build/lint/format checks pass. Actual renderer screenshots and limitations are in [visual review](design/visual-review.md).
+
+Local Ollama inference and Vercel production publishing were verified in later work; the original baseline table's unverified rows describe the initial delivery, not the current release. Physical ESP32 commissioning, calibrated power/flow/gas measurements, and generalized GPU performance remain unverified.

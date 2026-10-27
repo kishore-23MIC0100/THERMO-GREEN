@@ -46,5 +46,10 @@ export function trainStep(weight: number, learningRate = 0.05) {
     loss += error * error;
     gradient += 2 * error * x;
   }
-  return { weight: weight - (learningRate * gradient) / 128, loss: loss / 128 };
+  const nextWeight = weight - (learningRate * gradient) / 128;
+  // Report loss at the returned weight, so the coefficient and loss describe
+  // the same training state. The initial zero-rate call records epoch zero.
+  let nextLoss = 0;
+  for (let i = 1; i <= 128; i++) nextLoss += (((nextWeight - 2) * i) / 128) ** 2;
+  return { weight: nextWeight, loss: nextLoss / 128, previousLoss: loss / 128 };
 }

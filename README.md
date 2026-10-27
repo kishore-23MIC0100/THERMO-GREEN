@@ -1,12 +1,12 @@
 # AlgaeRhythm · THERMO-GREEN
 
-An evidence-first Bio-Compute dashboard: procedural 3D apparatus, native ESP32 USB telemetry, autonomous firmware safety, a physics-based simulator, actual local compute demonstrations, and reproducible experiment records.
+An evidence-first Bio-Compute dashboard: local GLB equipment assemblies, native ESP32 USB telemetry, autonomous firmware safety, a physics-based simulator, actual local compute demonstrations, and reproducible experiment records.
 
 The dashboard follows the supplied design reference in `docs/design/dashboard-reference.png`. Every panel is functional; that image is never used as the application background or as the 3D model. The current prototype uses water, not a demonstrated algae culture. Carbon capture and data-centre savings are not claimed.
 
 ## Start in two commands
 
-Requirements: Node.js 22.12+ (22.x) and npm. Chrome or Edge on desktop for physical USB; localhost or HTTPS is required. No Python backend, external model downloads, GLB assets, or hosted account is required to run the dashboard or simulator.
+Requirements: Node.js 22.12+ (22.x) and npm. Chrome or Edge on desktop for physical USB; localhost or HTTPS is required. No Python backend, external model downloads, or hosted account is required to run the dashboard or simulator.
 
 ```sh
 npm ci
@@ -26,6 +26,14 @@ Open **http://127.0.0.1:5173**. The application starts **DISCONNECTED** with una
 
 The full script, including physical acceptance tests, is in [docs/demo-script/README.md](docs/demo-script/README.md).
 
+## Digital twin and controls update
+
+The default dashboard now follows the supplied light laboratory reference. The apparatus uses original local GLB assets with detailed heater fins/fan, machined blocks/fittings, ribbed pump, glass reactor, electronics, and mounting hardware. Rebuild them with `npm run models:build`. The expanded twin adds normal/top/front/isometric/focus cameras, exploded view, component visibility, and a labeled conceptual green-fluid option. See [asset production and visual review](docs/design/asset-pipeline.md).
+
+Quick Controls accepts a **requested target from 25 to 50 °C**. It displays the effective operating ceiling separately: requests above **35.0 °C** are capped by the current **35.5 °C** firmware trip. Applying a lower ceiling also stops manual heating above it. Editing the request does not reconfigure firmware safety.
+
+The training demo now plots actual per-epoch mean squared error, reports the matching coefficient and loss, and stops at MSE ≤ 10⁻⁶ or 300 epochs. The requested load controls epoch cadence. Inference remains a separate numerical workload. Neither is a fine-tune of the optional Ollama model.
+
 ## Connect real hardware
 
 1. Read [wiring and bring-up](docs/hardware-wiring/README.md) and [safety limits](docs/safety/README.md).
@@ -43,7 +51,7 @@ CP210x/CH340 boards may require the USB-chip manufacturer's driver and a data-ca
 | Workspace | Behavior |
 |---|---|
 | Dashboard | Reference-style shell, 3D apparatus, source/freshness status, plots, workload, quick controls and events |
-| 3D Digital Twin | Procedural PBR parts; orbit/zoom/pan, normal/top/front/detail cameras, exploded view, selection, labels, flow illustration, quality and fullscreen |
+| 3D Digital Twin | Detailed local GLB equipment; orbit/zoom/pan, normal/top/front/detail cameras, exploded view, selection, labels, flow illustration, quality and fullscreen |
 | Live Monitoring | Temperature, optional second probe, raw MQ-135 and relay plots; time window, pause, zoom, CSV |
 | Controls | Acknowledged requests, timeout handling, E-stop, latched reset, profiles and simulator fault injection |
 | Analytics | Stored-sample ΔT, Q, linear-fit rate, weighted duty, max temperature, trip count and time estimate |
@@ -62,7 +70,7 @@ CP210x/CH340 boards may require the USB-chip manufacturer's driver and a data-ca
 - CSV includes units, source per sample, firmware, trip setting, simulation speed, session and annotation metadata. Potential spreadsheet formulas are escaped.
 - Missing samples remain gaps in charts. LTTB downsamples long display series. The active chart window retains at most 7,200 samples in memory; full records stay in IndexedDB.
 - Browser visibility suspends heartbeat and requests OFF. Firmware does not depend on the tab or browser to stop heating.
-- All fonts and geometry are local. No stock images, remote HDRI, telemetry service, API keys or hidden analytics.
+- All fonts, GLB equipment, and geometry are local. No stock images, remote HDRI, telemetry service, API keys or hidden analytics.
 
 Detailed architecture: [docs/architecture/README.md](docs/architecture/README.md).
 

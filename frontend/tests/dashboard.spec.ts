@@ -89,6 +89,17 @@ test('hidden tab loses heartbeat and E-stop latches', async ({ page }) => {
   await page.getByRole('button', { name: 'E-STOP', exact: true }).click();
   await expect(page.locator('.fault-banner')).toContainText('E STOP');
 });
+test('opens expanded twin controls during an active telemetry stream', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Start simulation', exact: true }).click();
+  await page.getByRole('link', { name: '3D Digital Twin', exact: true }).click();
+  await expect(page.getByLabel('Reference green · conceptual')).toBeVisible();
+  await page.getByLabel('Inspect component').selectOption('reactor');
+  await page.getByRole('button', { name: 'Focus component', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: 'Camera', exact: true })).toHaveValue('Focus');
+  await page.getByRole('button', { name: 'Hide component', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Show component', exact: true })).toBeVisible();
+});
 test('real local compute executes and stops without energizing hardware', async ({ page }) => {
   await page.goto('/compute');
   await page.getByRole('button', { name: 'Run compute', exact: true }).click();
@@ -107,6 +118,52 @@ test('real local compute executes and stops without energizing hardware', async 
   await page.getByRole('button', { name: 'Stop compute', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Run compute', exact: true })).toBeVisible();
   await expect(page.locator('.header-status')).toContainText('DISCONNECTED');
+});
+test('training reports a real learning curve and converges without heater control', async ({
+  page,
+}) => {
+  await page.goto('/compute');
+  await page.getByLabel('Job type').selectOption('training');
+  await page.getByRole('button', { name: 'Run compute', exact: true }).click();
+  await expect(page.locator('.loss-summary')).toContainText('Training in progress');
+  await expect(page.locator('.loss-summary')).toContainText('Converged', { timeout: 15000 });
+  await expect(page.getByRole('button', { name: 'Run compute', exact: true })).toBeVisible();
+  await expect(page.locator('.training-loss-panel svg[role="img"]')).toHaveAttribute(
+    'aria-label',
+    /Training MSE decreased/,
+  );
+  await expect(page.locator('.loss-summary')).toContainText('coefficient 1.998');
+  await expect(page.locator('.header-status')).toContainText('DISCONNECTED');
+});
+test('requested target spans 25–50 while retaining the configured hardware ceiling', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const target = page.getByRole('spinbutton', { name: 'Requested target in Celsius' });
+  await expect(target).toHaveAttribute('min', '25');
+  await expect(target).toHaveAttribute('max', '50');
+  await target.fill('50');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(target).toHaveValue('50');
+  await expect(page.getByText(/Applied ceiling: 35.0 °C/)).toBeVisible();
+  await target.fill('25');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByText(/Applied ceiling: 25.0 °C/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Start simulation', exact: true }).click();
+  await expect(target).toHaveValue('25');
+  await target.fill('35');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Start Heater', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Start Heater', exact: true }).click();
+  await expect(
+    page.locator('.status-card').filter({ hasText: 'Heater Status' }).locator('strong'),
+  ).toHaveText('ON');
+  await target.fill('25');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(
+    page.locator('.status-card').filter({ hasText: 'Heater Status' }).locator('strong'),
+  ).toHaveText('OFF');
 });
 test('all routes render and mobile has no page overflow', async ({ page }) => {
   for (const [path, title] of [

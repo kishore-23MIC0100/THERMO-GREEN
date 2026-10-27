@@ -50,8 +50,8 @@ export default function TelemetryChart({
         smooth: false,
         connectNulls: false,
         step: kind === 'heater' ? 'end' : undefined,
-        lineStyle: { width: 2, color: kind === 'gas' ? '#a66bff' : '#00e5a0' },
-        itemStyle: { color: kind === 'gas' ? '#a66bff' : '#00e5a0' },
+        lineStyle: { width: 2, color: kind === 'gas' ? '#964ff5' : '#00a878' },
+        itemStyle: { color: kind === 'gas' ? '#964ff5' : '#00a878' },
         areaStyle: { opacity: 0.06 },
         markLine:
           kind === 'temperature'
@@ -59,7 +59,7 @@ export default function TelemetryChart({
                 silent: true,
                 symbol: 'none',
                 label: { show: !compact, formatter: 'Safety trip' },
-                lineStyle: { color: '#ff5c63', type: 'dashed' },
+                lineStyle: { color: '#e5484d', type: 'dashed' },
                 data: [{ yAxis: SAFETY.tripC }],
               }
             : undefined,
@@ -72,7 +72,7 @@ export default function TelemetryChart({
         data: points(picked, 'temp2', !!compare),
         showSymbol: false,
         connectNulls: false,
-        lineStyle: { color: '#ff8a3d', width: 2 },
+        lineStyle: { color: '#ff7a21', width: 2 },
       });
     if (compare)
       series.push({
@@ -90,18 +90,18 @@ export default function TelemetryChart({
           key,
           true,
         ),
-        lineStyle: { color: '#22d3ee', width: 2, type: 'dashed' },
+        lineStyle: { color: '#17b9e8', width: 2, type: 'dashed' },
       });
     return {
       animation: false,
       backgroundColor: 'transparent',
-      textStyle: { fontFamily: 'Inter', color: '#9ab0c3' },
+      textStyle: { fontFamily: 'Inter', color: '#50677f' },
       aria: { enabled: true },
       tooltip: {
         trigger: 'axis',
-        backgroundColor: '#102338',
-        borderColor: '#29485b',
-        textStyle: { color: '#f4f8fb' },
+        backgroundColor: '#ffffff',
+        borderColor: '#dce8ed',
+        textStyle: { color: '#10253f' },
       },
       grid: {
         left: compact ? 42 : 55,
@@ -109,11 +109,11 @@ export default function TelemetryChart({
         top: compact ? 12 : 40,
         bottom: compact ? 28 : 65,
       },
-      legend: { show: !compact, textStyle: { color: '#9ab0c3' }, top: 4 },
+      legend: { show: !compact, textStyle: { color: '#50677f' }, top: 4 },
       xAxis: {
         type: compare ? 'value' : 'time',
         name: compare ? 'Elapsed milliseconds' : undefined,
-        axisLabel: { color: '#9ab0c3', fontSize: 10 },
+        axisLabel: { color: '#50677f', fontSize: 10 },
         splitLine: { show: false },
       },
       yAxis: {
@@ -122,8 +122,8 @@ export default function TelemetryChart({
         name: kind === 'temperature' ? '°C' : kind === 'gas' ? 'ADC' : '0 / 1',
         min: kind === 'heater' ? 0 : undefined,
         max: kind === 'heater' ? 1 : undefined,
-        axisLabel: { color: '#9ab0c3', fontSize: 10 },
-        splitLine: { lineStyle: { color: '#193242' } },
+        axisLabel: { color: '#50677f', fontSize: 10 },
+        splitLine: { lineStyle: { color: '#e8eff3' } },
       },
       dataZoom: compact
         ? []
@@ -133,8 +133,8 @@ export default function TelemetryChart({
               type: 'slider',
               height: 18,
               bottom: 10,
-              borderColor: '#19384b',
-              textStyle: { color: '#9ab0c3' },
+              borderColor: '#dce8ed',
+              textStyle: { color: '#50677f' },
             },
           ],
       series,
@@ -155,7 +155,7 @@ export default function TelemetryChart({
     />
   );
 }
-export function Sparkline({ values, color = '#00e5a0' }: { values: number[]; color?: string }) {
+export function Sparkline({ values, color = '#00a878' }: { values: number[]; color?: string }) {
   if (values.length < 2)
     return <div className="spark-empty" role="img" aria-label="No trend samples" />;
   const min = Math.min(...values),

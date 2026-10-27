@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { SAFETY } from '../lib/config';
 import type { Telemetry } from '../hardware/protocol';
 import { canHeat, useRuntime } from './runtime';
+import { useSettings } from './settings';
 
 const valid: Telemetry = {
   v: 2,
@@ -13,6 +14,7 @@ const valid: Telemetry = {
   trip_c: SAFETY.tripC,
 };
 beforeEach(() => {
+  useSettings.setState({ low: 32, high: 35 });
   useRuntime.setState({
     ...useRuntime.getInitialState(),
     mode: 'LIVE',
@@ -23,6 +25,10 @@ beforeEach(() => {
   });
 });
 describe('runtime heating gate', () => {
+  it('respects a lower operator ceiling in manual mode', () => {
+    useSettings.setState({ high: 25 });
+    expect(canHeat()).toBe(false);
+  });
   it('permits only fresh explicitly armed compatible telemetry after dwell', () => {
     expect(canHeat()).toBe(true);
   });
