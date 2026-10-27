@@ -37,3 +37,13 @@
 - Replaced premature LIVE badges with derived awaiting-telemetry/stale/fault status. The shader scene still uses firmware-reported heater state, reactor sensor readings, and explicit simulation/replay provenance; pump flow remains uninstrumented.
 - Captured and reviewed baseline and rebuilt screenshots; fixed a suspense HTML unmount error, annotation overlap, glass depth handling, and light-theme contrast. Verification details and remaining limits are in docs/design/visual-review.md.
 - Final verification: 58/58 unit tests, native firmware safety tests, 9/9 browser scenarios, lint, format, and production build passed. Added active-stream navigation/focus/visibility and manual ceiling regression coverage. The navigation fix disables deferred BrowserRouter transitions for this high-frequency telemetry application; the apparatus shares one lazy module across routes. Kept the heater indicator light mounted to avoid lighting-shader recompilation on relay changes.
+
+
+## 27 October 2026 — reported physical-device USB errors
+
+- Reviewed the supplied hardware photos and Arduino sketch without changing the relay verification lock. The existing native firmware retains RELAY_POLARITY_VERIFIED=false and the 35.5 °C trip.
+- Fixed heartbeats being sent before port open, source readiness and write-failure disconnection, idempotent stream cleanup, pending chooser cancellation, old-session callbacks, and acknowledgement acceptance. Explicit reset now requires fresh compatible v2 telemetry and valid cool probes; it preserves the relay lock and leaves heat OFF.
+- Preserved device fault bits separately from browser sensor validation, classified recognized startup text as non-telemetry, added fault/recovery explanations, and appended diagnostic provenance to CSV exports. Invalid sensor values and malformed telemetry are still rejected for control.
+- Preserved the provided standalone Arduino sketch under firmware/arduino and compiled its esp32dev target successfully: 21,920 bytes RAM, 290,397 bytes flash. No flash or physical relay/sensor verification was performed.
+- The targeted USB browser scenarios pass, including delayed open with no premature heartbeat writes, fault=6/armed=false safe reset, current temperature/ADC propagation into the twin, and write-failure transition to DISCONNECTED. The expanded unit suite passes 63 tests and native firmware safety checks.
+- Final combined release verification: lint, format check, production build, 63 frontend/domain tests, native firmware safety tests, and all 10 browser scenarios passed. The standalone Arduino esp32dev target compiled successfully; both firmware variants are included in CI. Physical device commissioning remains pending.

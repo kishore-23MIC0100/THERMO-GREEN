@@ -28,8 +28,10 @@ import {
   issue,
   emergencyStop,
   isResettable,
+  resetBlockReason,
 } from '../stores/runtime';
 import { useSettings } from '../stores/settings';
+import { faultDetails } from '../hardware/diagnostics';
 import { useCompute, configureCompute, runCompute, stopCompute } from '../compute/store';
 const TelemetryChart = lazy(() => import('./Charts'));
 export function stopAll() {
@@ -366,13 +368,21 @@ export function QuickControls() {
         </small>
         {s.telemetry?.armed === false && (
           <p className="warning-text">
-            Relay locked: verify polarity and enable the firmware interlock.
+            Relay safety lock is enabled (armed=false). Sensor monitoring and safe fault reset
+            remain available. Heater activation stays blocked until physical relay verification and
+            an approved firmware update.
           </p>
         )}
         {s.telemetry?.fault ? (
-          <button disabled={!isResettable()} onClick={() => setConfirm(true)}>
-            Reset latched fault
-          </button>
+          <>
+            <button disabled={!isResettable()} onClick={() => setConfirm(true)}>
+              Reset latched fault
+            </button>
+            <small>
+              {resetBlockReason() ??
+                'Ready for operator-confirmed reset. Reset keeps the heater OFF and preserves the relay verification lock.'}
+            </small>
+          </>
         ) : null}
         <p className="command-result" aria-live="polite">
           {s.commands[0]
@@ -388,6 +398,8 @@ export function QuickControls() {
           onClose={() => setConfirm(false)}
           onConfirm={() => {
             setConfirm(false);
+            configureCompute({ linked: false });
+            useRuntime.setState({ auto: false, profile: 'IDLE', burstUntil: 0 });
             void issue({ cmd: 'reset_fault' });
           }}
         >
@@ -483,6 +495,19 @@ export function FaultBanner() {
           Heater reported {s.telemetry.heater ? 'ON: inspect immediately' : 'OFF'}. Resolve the
           cause and explicitly reset after cooldown.
         </span>
+        {faultDetails(s.telemetry, !!s.receivedAt && s.now - s.receivedAt <= SAFETY.staleMs).map(
+          (detail) => (
+            <p className="fault-detail" key={detail.name}>
+              <b>{detail.name}:</b> {detail.explanation}
+            </p>
+          ),
+        )}
+        {s.telemetry.reportedFault != null && s.telemetry.reportedFault !== s.telemetry.fault && (
+          <p className="fault-detail">
+            Device-reported mask: {s.telemetry.reportedFault}. Browser validation also detected an
+            invalid probe reading.
+          </p>
+        )}
       </div>
       <Link to="/control">Inspect fault</Link>
     </div>

@@ -39,3 +39,4 @@ jobs:
           python-version: '3.12'
       - run: pip install platformio==6.1.18
       - run: pio run -d firmware/esp32
+      - run: pio run -d firmware/arduino

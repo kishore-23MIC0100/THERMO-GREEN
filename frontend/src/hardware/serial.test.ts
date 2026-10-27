@@ -82,3 +82,45 @@ it('explains unsupported browser requirements', async () => {
   );
   await expect(active.connect()).rejects.toThrow('Chrome or Edge');
 });
+it('reports a write failure even when the read stream has not ended', async () => {
+  const onError = vi.fn();
+  const port = {
+    readable: new ReadableStream(),
+    writable: new WritableStream({
+      write() {
+        throw new Error('device unplugged');
+      },
+    }),
+    open: vi.fn(),
+    close: vi.fn().mockResolvedValue(undefined),
+  };
+  vi.stubGlobal('navigator', { serial: { requestPort: vi.fn().mockResolvedValue(port) } });
+  active = new SerialTransport(() => {}, onError);
+  await active.connect();
+  await expect(active.send({ cmd: 'heartbeat' })).rejects.toThrow('device unplugged');
+  expect(onError).toHaveBeenCalledOnce();
+  expect(onError.mock.calls[0][0].message).toContain('USB serial write failed');
+  await active.close();
+  expect(port.close).toHaveBeenCalledOnce();
+});
+it('does not open a device after the pending chooser was cancelled by the application', async () => {
+  let choose!: (port: unknown) => void;
+  const port = { open: vi.fn(), close: vi.fn() };
+  vi.stubGlobal('navigator', {
+    serial: {
+      requestPort: () =>
+        new Promise((resolve) => {
+          choose = resolve;
+        }),
+    },
+  });
+  active = new SerialTransport(
+    () => {},
+    () => {},
+  );
+  const connecting = active.connect();
+  await active.close();
+  choose(port);
+  await expect(connecting).rejects.toThrow('cancelled');
+  expect(port.open).not.toHaveBeenCalled();
+});

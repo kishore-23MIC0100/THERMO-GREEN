@@ -5,6 +5,7 @@ import { parseTelemetry, type Command, type Telemetry } from '../hardware/protoc
 import { SerialTransport, SimulatorTransport, type Transport } from '../hardware/serial';
 import { decideHeater, demand, type Profile } from '../hardware/controller';
 import { useSettings } from './settings';
+import { validProbe } from '../hardware/diagnostics';
 
 export interface Pending {
   id: number;
@@ -15,6 +16,7 @@ export interface Pending {
 interface Runtime {
   mode: Mode;
   busy: boolean;
+  transportReady: boolean;
   telemetry: Telemetry | null;
   receivedAt: number;
   now: number;
@@ -38,6 +40,7 @@ interface Runtime {
 export const useRuntime = create<Runtime>(() => ({
   mode: 'DISCONNECTED',
   busy: false,
+  transportReady: false,
   telemetry: null,
   receivedAt: 0,
   now: Date.now(),
@@ -67,6 +70,9 @@ const pending = new Map<
 >();
 let startedAt = Date.now();
 let lastHeartbeat = 0;
+let connectionGeneration = 0;
+let closingTransport: Promise<void> = Promise.resolve();
+let bootNoticeShown = false;
 let replayAnchor = 0;
 let replayStartIndex = 0;
 function errorMessage(e: unknown) {
@@ -101,6 +107,23 @@ function ingest(line: string) {
   try {
     data = parseTelemetry(line);
   } catch (e) {
+    const startup = !useRuntime.getState().receivedAt;
+    if (
+      startup &&
+      !line.trimStart().startsWith('{') &&
+      (/^(ets |rst:|boot:|load:|entry |mode:)/i.test(line) ||
+        line.includes('\ufffd') ||
+        [...line].some((character) => character.charCodeAt(0) <= 8))
+    ) {
+      if (!bootNoticeShown) {
+        log(
+          'system',
+          'Ignored ESP32 boot output; waiting for a complete validated JSON telemetry packet.',
+        );
+        bootNoticeShown = true;
+      }
+      return;
+    }
     log('error', `Rejected telemetry: ${errorMessage(e).slice(0, 180)}`);
     return;
   }
@@ -118,7 +141,7 @@ function ingest(line: string) {
     const command = pending.get(data.ack)!;
     clearTimeout(command.timer);
     pending.delete(data.ack);
-    const accepted = data.accepted !== false;
+    const accepted = data.accepted === true;
     updateCommand(data.ack, accepted ? 'acknowledged' : 'rejected');
     command.resolve(accepted);
     log('ack', `Command ${data.ack} ${accepted ? 'acknowledged' : 'rejected by firmware'}`);
@@ -130,6 +153,13 @@ function ingest(line: string) {
         auto: false,
         burstUntil: 0,
         notice: 'Safety interlock active. Inspect the fault before resetting.',
+      });
+    else
+      useRuntime.setState({
+        auto: false,
+        burstUntil: 0,
+        profile: 'IDLE',
+        notice: `Firmware fault flags cleared; heater reported ${data.heater ? 'ON — inspect immediately' : 'OFF'}. ${data.armed === false ? 'Relay verification lock remains enabled.' : 'A separate heating request is required.'}`,
       });
   }
   if (data.trip_c !== undefined && Math.abs(data.trip_c - SAFETY.tripC) > 0.01) {
@@ -152,7 +182,8 @@ function ingest(line: string) {
 }
 export async function issue(command: Command): Promise<boolean> {
   const s = useRuntime.getState();
-  if (!transport || !['LIVE', 'SIMULATED'].includes(s.mode)) return false;
+  if (!transport || !s.transportReady || !['LIVE', 'SIMULATED'].includes(s.mode)) return false;
+  const current = transport;
   if (command.cmd === 'heater' && command.value === 1) {
     if (!canHeat()) {
       reportError(
@@ -161,8 +192,12 @@ export async function issue(command: Command): Promise<boolean> {
       return false;
     }
   }
+  if (command.cmd === 'reset_fault' && !isResettable()) {
+    reportError(resetBlockReason() ?? 'Fault reset is not available.');
+    return false;
+  }
   if (command.cmd === 'heartbeat') {
-    await transport.send(command);
+    await current.send(command);
     return true;
   }
   const id = counter++;
@@ -186,7 +221,7 @@ export async function issue(command: Command): Promise<boolean> {
     pending.set(id, { timer, resolve });
   });
   try {
-    await transport.send({ ...command, id });
+    await current.send({ ...command, id });
   } catch (e) {
     const p = pending.get(id);
     if (p) {
@@ -195,7 +230,7 @@ export async function issue(command: Command): Promise<boolean> {
       p.resolve(false);
     }
     updateCommand(id, 'failed');
-    reportError(e);
+    transportFailed(current, e instanceof Error ? e : new Error(String(e)));
   }
   return result;
 }
@@ -205,9 +240,10 @@ export function canHeat() {
     ceiling = useSettings.getState().high;
   return (
     !!t &&
+    s.transportReady &&
     ['LIVE', 'SIMULATED'].includes(s.mode) &&
     s.now - s.receivedAt <= SAFETY.staleMs &&
-    t.temp !== null &&
+    validProbe(t.temp) &&
     t.temp < Math.min(ceiling, SAFETY.tripC - SAFETY.setpointMarginC) &&
     (t.temp2 == null || t.temp2 < SAFETY.tripC) &&
     !t.fault &&
@@ -220,7 +256,7 @@ export function canHeat() {
     Math.abs(t.trip_c - SAFETY.tripC) < 0.01
   );
 }
-async function beginSession(source: Source) {
+async function beginSession(source: Source, generation: number) {
   const id = crypto.randomUUID();
   const settings = useSettings.getState();
   await db.sessions.add({
@@ -233,6 +269,10 @@ async function beginSession(source: Source) {
     notes: '',
     ...(source === 'simulated' ? { simSpeed: settings.simSpeed } : {}),
   });
+  if (generation !== connectionGeneration) {
+    await db.sessions.update(id, { endedAt: Date.now() });
+    return false;
+  }
   useRuntime.setState({
     sessionId: id,
     samples: [],
@@ -240,28 +280,52 @@ async function beginSession(source: Source) {
     commands: [],
     recordingError: false,
   });
+  return true;
+}
+function transportFailed(owner: Transport, error: Error) {
+  if (transport !== owner) return;
+  log(
+    'error',
+    `${error.message}; source disconnected. Reconnect USB before issuing more commands.`,
+  );
+  reportError(
+    `${error.message}. USB connection ended; reconnect the ESP32. Firmware watchdog retains safety authority.`,
+  );
+  void disconnect();
 }
 export async function connect(mode: 'LIVE' | 'SIMULATED') {
   if (useRuntime.getState().busy) return;
+  const closing = disconnect();
+  const generation = connectionGeneration;
   useRuntime.setState({ busy: true, error: null, heartbeatPaused: false });
-  await disconnect();
+  bootNoticeShown = false;
   try {
-    await beginSession(mode === 'LIVE' ? 'live' : 'simulated');
+    await closing;
+    if (generation !== connectionGeneration) return;
+    if (!(await beginSession(mode === 'LIVE' ? 'live' : 'simulated', generation))) return;
     useRuntime.setState({ mode });
     startedAt = Date.now();
     lastHeartbeat = 0;
     if (mode === 'LIVE') {
-      const serial = new SerialTransport(ingest, (e) => {
-        reportError(e);
-        void disconnect();
-      });
+      const serial = new SerialTransport(
+        (line) => {
+          if (transport === serial && generation === connectionGeneration) ingest(line);
+        },
+        (e) => transportFailed(serial, e),
+      );
       transport = serial;
       await serial.connect(useSettings.getState().baud);
+      if (generation !== connectionGeneration || transport !== serial) {
+        await serial.close();
+        return;
+      }
     } else {
-      const sim = new SimulatorTransport(ingest, (e) => {
-        reportError(e);
-        void disconnect();
-      });
+      const sim = new SimulatorTransport(
+        (line) => {
+          if (transport === sim && generation === connectionGeneration) ingest(line);
+        },
+        (e) => transportFailed(sim, e),
+      );
       transport = sim;
       const c = useSettings.getState();
       sim.worker.postMessage({
@@ -275,7 +339,9 @@ export async function connect(mode: 'LIVE' | 'SIMULATED') {
         },
       });
     }
+    useRuntime.setState({ transportReady: true });
     await transport.send({ cmd: 'heartbeat' });
+    if (generation !== connectionGeneration) return;
     lastHeartbeat = Date.now();
     useRuntime.setState({
       notice:
@@ -285,38 +351,55 @@ export async function connect(mode: 'LIVE' | 'SIMULATED') {
     });
     log('system', `${mode} connected; recording started`);
   } catch (e) {
-    reportError(e);
-    await disconnect();
+    if (generation === connectionGeneration) {
+      reportError(e);
+      await disconnect();
+    }
   } finally {
-    useRuntime.setState({ busy: false });
+    if (generation === connectionGeneration) useRuntime.setState({ busy: false });
   }
 }
 export async function disconnect() {
+  ++connectionGeneration;
   const s = useRuntime.getState();
   const old = transport;
   transport = null;
   useRuntime.setState({
     auto: false,
+    busy: false,
     burstUntil: 0,
     replayPlaying: false,
     mode: 'DISCONNECTED',
+    transportReady: false,
     telemetry: null,
     receivedAt: 0,
     heartbeatPaused: false,
+    sessionId: null,
+    samples: [],
+    replaySamples: [],
+    commands: s.commands.map((c) => (c.status === 'pending' ? { ...c, status: 'failed' } : c)),
   });
   for (const p of pending.values()) {
     clearTimeout(p.timer);
     p.resolve(false);
   }
   pending.clear();
-  if (old) {
-    await old.send({ cmd: 'heater', value: 0 }).catch(() => {});
-    await old.close();
-  }
+  const before = closingTransport;
+  closingTransport = (async () => {
+    await before;
+    if (old) {
+      if (s.transportReady)
+        await Promise.race([
+          old.send({ cmd: 'heater', value: 0 }).catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, 500)),
+        ]);
+      await old.close();
+    }
+  })();
+  await closingTransport;
   await serialisedWrites;
   if (s.sessionId && s.mode !== 'REPLAY')
     await db.sessions.update(s.sessionId, { endedAt: Date.now() }).catch(reportError);
-  useRuntime.setState({ sessionId: null, samples: [], replaySamples: [] });
 }
 export function emergencyStop() {
   useRuntime.setState({ auto: false, burstUntil: 0, profile: 'IDLE' });
@@ -393,10 +476,13 @@ export function startRuntime() {
       });
       return;
     }
-    if (!transport || !['LIVE', 'SIMULATED'].includes(s.mode)) return;
+    if (!transport || !s.transportReady || !['LIVE', 'SIMULATED'].includes(s.mode)) return;
     if (!document.hidden && !s.heartbeatPaused && now - lastHeartbeat >= SAFETY.heartbeatMs) {
       lastHeartbeat = now;
-      void transport.send({ cmd: 'heartbeat' }).catch(reportError);
+      const current = transport;
+      void current
+        .send({ cmd: 'heartbeat' })
+        .catch((e) => transportFailed(current, e instanceof Error ? e : new Error(String(e))));
     }
     const stale = now - s.receivedAt > SAFETY.staleMs;
     const settings = useSettings.getState();
@@ -447,15 +533,26 @@ export function startRuntime() {
   };
 }
 export const isResettable = () => {
+  return resetBlockReason() === null;
+};
+export const resetBlockReason = (): string | null => {
   const s = useRuntime.getState(),
     t = s.telemetry;
-  return (
-    !!t &&
-    !!t.fault &&
-    t.temp !== null &&
-    t.temp < SAFETY.tripC - SAFETY.resetMarginC &&
-    (t.temp2 == null || t.temp2 < SAFETY.tripC - SAFETY.resetMarginC) &&
-    !s.heartbeatPaused &&
-    s.now - s.receivedAt <= SAFETY.staleMs
-  );
+  if (!s.transportReady || !['LIVE', 'SIMULATED'].includes(s.mode))
+    return 'Connect the ESP32 or simulator before resetting.';
+  if (!t || !s.receivedAt || s.now - s.receivedAt > SAFETY.staleMs)
+    return 'Wait for fresh validated telemetry before resetting.';
+  if (!t.fault) return 'There is no latched fault to reset.';
+  if (t.v !== 2 || t.trip_c == null || Math.abs(t.trip_c - SAFETY.tripC) > 0.01)
+    return 'Compatible v2 firmware and a matching 35.5 °C trip are required for an acknowledged reset.';
+  if (!validProbe(t.temp) || (t.temp2 != null && !validProbe(t.temp2)))
+    return 'Wait for valid DS18B20 probe readings; inspect the sensor wiring.';
+  if (
+    t.temp! >= SAFETY.tripC - SAFETY.resetMarginC ||
+    (t.temp2 != null && t.temp2 >= SAFETY.tripC - SAFETY.resetMarginC)
+  )
+    return `Cool all available probes below ${SAFETY.tripC - SAFETY.resetMarginC} °C before resetting.`;
+  if (s.heartbeatPaused || document.hidden)
+    return 'Keep this tab active and resume heartbeats before resetting.';
+  return null;
 };

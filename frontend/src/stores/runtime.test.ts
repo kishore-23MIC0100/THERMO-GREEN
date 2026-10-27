@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SAFETY } from '../lib/config';
 import type { Telemetry } from '../hardware/protocol';
-import { canHeat, useRuntime } from './runtime';
+import { canHeat, isResettable, useRuntime } from './runtime';
 import { useSettings } from './settings';
 
 const valid: Telemetry = {
@@ -18,6 +18,7 @@ beforeEach(() => {
   useRuntime.setState({
     ...useRuntime.getInitialState(),
     mode: 'LIVE',
+    transportReady: true,
     now: 10000,
     receivedAt: 10000,
     lastChange: 0,
@@ -25,6 +26,14 @@ beforeEach(() => {
   });
 });
 describe('runtime heating gate', () => {
+  it('allows an explicit safe reset while preserving the unverified relay lock', () => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    useRuntime.setState({ telemetry: { ...valid, fault: 6, armed: false } });
+    expect(isResettable()).toBe(true);
+    expect(canHeat()).toBe(false);
+    useRuntime.setState({ telemetry: { ...valid, fault: 6, armed: false, temp: null } });
+    expect(isResettable()).toBe(false);
+  });
   it('respects a lower operator ceiling in manual mode', () => {
     useSettings.setState({ high: 25 });
     expect(canHeat()).toBe(false);
@@ -53,6 +62,7 @@ describe('runtime heating gate', () => {
     { recordingError: true },
     { mode: 'REPLAY' as const },
     { mode: 'DISCONNECTED' as const },
+    { transportReady: false },
   ])('rejects unsafe runtime state: %j', (patch) => {
     useRuntime.setState(patch);
     expect(canHeat()).toBe(false);

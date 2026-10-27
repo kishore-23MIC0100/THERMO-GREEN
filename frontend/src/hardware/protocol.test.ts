@@ -36,3 +36,35 @@ describe('telemetry protocol', () => {
     expect(() => new LineBuffer().push('a'.repeat(16385))).toThrow();
   });
 });
+
+it('preserves the device fault mask separately from browser sensor validation', () => {
+  const boot = parseTelemetry(
+    JSON.stringify({
+      v: 2,
+      temp: null,
+      temp2: null,
+      gas: 0,
+      heater: 0,
+      fault: 4,
+      trip_c: 35.5,
+      armed: false,
+    }),
+  );
+  expect(boot.reportedFault).toBe(4);
+  expect(boot.fault).toBe(6);
+  expect(boot.sensorInvalid).toBe(true);
+  const recovered = parseTelemetry(
+    JSON.stringify({
+      v: 2,
+      temp: 26.5,
+      gas: 1860,
+      heater: 0,
+      fault: 6,
+      trip_c: 35.5,
+      armed: false,
+    }),
+  );
+  expect(recovered.reportedFault).toBe(6);
+  expect(recovered.sensorInvalid).toBe(false);
+  expect(recovered.temp).toBe(26.5);
+});

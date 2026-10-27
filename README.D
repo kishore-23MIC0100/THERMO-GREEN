@@ -42,6 +42,8 @@ The training demo now plots actual per-epoch mean squared error, reports the mat
 4. Close Arduino/PlatformIO serial monitors. Click **Connect ESP32**, choose the USB port, and verify fresh sensor data. Baud is 115200.
 5. Boot/link faults remain latched until a valid sensor sample, restored heartbeat, safe cooldown and explicit **Reset latched fault**. Observe relay OFF before enabling heat.
 
+The supplied standalone Arduino sketch and a detailed explanation of startup faults, the relay verification lock, and USB recovery are in [serial recovery](docs/hardware-wiring/serial-recovery.md). The sketch is compiled for the generic ESP32 Dev Module target; physical commissioning remains required.
+
 CP210x/CH340 boards may require the USB-chip manufacturer's driver and a data-capable cable. Permission denied: retry the chooser from a user click. Port busy: close other serial clients. No data: check baud, power, USB cable and newline JSON. Legacy telemetry is displayed; remote heater enabling requires v2 acknowledgements. The supplied firmware supports both legacy heater commands and v2 commands.
 
 **Hardware testing has not been performed here.** Compilation and mocked transport tests do not certify wiring, relay polarity, DC contact ratings, flow, thermal response or sensor calibration.

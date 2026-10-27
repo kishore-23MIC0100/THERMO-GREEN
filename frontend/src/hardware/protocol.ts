@@ -16,12 +16,17 @@ export const telemetrySchema = z.object({
   armed: z.boolean().optional(),
   firmware: z.string().max(64).optional(),
 });
-export type Telemetry = z.infer<typeof telemetrySchema>;
+export type Telemetry = z.infer<typeof telemetrySchema> & {
+  reportedFault?: number;
+  sensorInvalid?: boolean;
+};
 export type Command =
   | { cmd: 'heater'; value: 0 | 1; id?: number }
   | { cmd: 'heartbeat' | 'estop' | 'reset_fault'; id?: number };
 export function parseTelemetry(line: string): Telemetry {
-  const data = telemetrySchema.parse(JSON.parse(line));
+  const data: Telemetry = telemetrySchema.parse(JSON.parse(line));
+  data.reportedFault = data.fault;
+  data.sensorInvalid = false;
   if (
     data.temp === null ||
     data.temp === -127 ||
@@ -29,6 +34,7 @@ export function parseTelemetry(line: string): Telemetry {
     data.temp < -55 ||
     (data.temp2 != null && (data.temp2 === -127 || data.temp2 === 85 || data.temp2 < -55))
   ) {
+    data.sensorInvalid = true;
     data.fault |= FAULTS.SENSOR_FAULT;
     if (data.temp === -127 || data.temp === 85 || (data.temp != null && data.temp < -55))
       data.temp = null;

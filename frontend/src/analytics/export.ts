@@ -12,7 +12,7 @@ export async function sessionCSV(id: string) {
     ...Object.entries({ ...session, annotations: notes.map((n) => n.text).join(' | ') }).map(
       ([key, value]) => `# ${key},${csvCell(value)}`,
     ),
-    'timestamp_iso,temp_C,temp2_C,gas_raw_ADC,heater_commanded,fault_bitmask,source,seq',
+    'timestamp_iso,temp_C,temp2_C,gas_raw_ADC,heater_commanded,fault_bitmask,source,seq,device_reported_fault,browser_sensor_invalid',
     ...samples.map((s) =>
       [
         new Date(s.timestamp).toISOString(),
@@ -23,6 +23,8 @@ export async function sessionCSV(id: string) {
         s.fault,
         s.source,
         s.seq,
+        s.reportedFault ?? s.fault,
+        s.sensorInvalid ?? '',
       ]
         .map(csvCell)
         .join(','),
