@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   Html,
@@ -128,15 +128,17 @@ function Tube({
   color?: string;
   radius?: number;
 }) {
+  const pathKey = JSON.stringify(points);
+  const lowQuality = useSettings((s) => s.quality === 'low');
   const curve = useMemo(
     () =>
       new CatmullRomCurve3(
-        points.map((p) => new Vector3(...p)),
+        (JSON.parse(pathKey) as Vec[]).map((p) => new Vector3(...p)),
         false,
         'catmullrom',
         0.35,
       ),
-    [points],
+    [pathKey],
   );
   const dots = useRef<Group>(null);
   const phase = useRef(0);
@@ -157,15 +159,25 @@ function Tube({
     <group>
       <mesh castShadow={!wire}>
         <tubeGeometry args={[curve, 80, radius, 12, false]} />
-        <meshPhysicalMaterial
-          color={tint}
-          roughness={wire ? 0.48 : 0.18}
-          metalness={wire ? 0.05 : 0.1}
-          clearcoat={wire ? 0 : 1}
-          transparent={!wire}
-          opacity={wire ? 1 : 0.5}
-          depthWrite={wire}
-        />
+        {lowQuality ? (
+          <meshStandardMaterial
+            color={tint}
+            roughness={0.4}
+            transparent={!wire}
+            opacity={wire ? 1 : 0.5}
+            depthWrite={wire}
+          />
+        ) : (
+          <meshPhysicalMaterial
+            color={tint}
+            roughness={wire ? 0.48 : 0.18}
+            metalness={wire ? 0.05 : 0.1}
+            clearcoat={wire ? 0 : 1}
+            transparent={!wire}
+            opacity={wire ? 1 : 0.5}
+            depthWrite={wire}
+          />
+        )}
       </mesh>
       {!wire && (
         <mesh>
@@ -273,7 +285,7 @@ function CameraRig({
     />
   );
 }
-function Apparatus({
+function ApparatusBody({
   explode,
   labels,
   flow,
@@ -294,11 +306,14 @@ function Apparatus({
   concept: boolean;
   hiddenParts: PartId[];
 }) {
-  const { telemetry: t, mode, now, receivedAt } = useRuntime();
+  const t = useRuntime((s) => s.telemetry),
+    mode = useRuntime((s) => s.mode);
   const quality = useSettings((s) => s.quality),
     reduced = useSettings((s) => s.reducedMotion);
-  const active =
-    mode !== 'DISCONNECTED' && (mode === 'REPLAY' || now - receivedAt <= SAFETY.staleMs);
+  const active = useRuntime(
+    (s) =>
+      s.mode !== 'DISCONNECTED' && (s.mode === 'REPLAY' || s.now - s.receivedAt <= SAFETY.staleMs),
+  );
   const heater = active && t?.heater === 1 && !t.fault;
   const runningFlow = active && flow && !reduced && !hidden && !explode;
   const props = { explode, labels, selected, select, hiddenParts };
@@ -498,13 +513,8 @@ function Apparatus({
     </>
   );
 }
-export default function TwinScene({
-  expanded = false,
-  hero = false,
-}: {
-  expanded?: boolean;
-  hero?: boolean;
-}) {
+const Apparatus = memo(ApparatusBody);
+function TwinScene({ expanded = false, hero = false }: { expanded?: boolean; hero?: boolean }) {
   const [explode, setExplode] = useState(false),
     [preset, setPreset] = useState('Normal'),
     [reset, setReset] = useState(0),
@@ -515,6 +525,8 @@ export default function TwinScene({
     [concept, setConcept] = useState(false),
     [hiddenParts, setHiddenParts] = useState<PartId[]>([]),
     [hidden, setHidden] = useState(document.hidden);
+  const [inView, setInView] = useState(true);
+  const canvasContainer = useRef<HTMLDivElement>(null);
   const quality = useSettings((s) => s.quality),
     mode = useRuntime((s) => s.mode),
     t = useRuntime((s) => s.telemetry),
@@ -532,6 +544,15 @@ export default function TwinScene({
     const fn = () => setHidden(document.hidden);
     document.addEventListener('visibilitychange', fn);
     return () => document.removeEventListener('visibilitychange', fn);
+  }, []);
+  useEffect(() => {
+    if (!canvasContainer.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting && entry.intersectionRatio >= 0.15),
+      { threshold: [0, 0.15] },
+    );
+    observer.observe(canvasContainer.current);
+    return () => observer.disconnect();
   }, []);
   return (
     <section
@@ -576,12 +597,12 @@ export default function TwinScene({
           </button>
         </div>
       </div>
-      <div className="scene-canvas">
+      <div className="scene-canvas" ref={canvasContainer}>
         {supported ? (
           <Canvas
             shadows={quality !== 'low'}
-            dpr={[1, quality === 'high' ? 1.6 : quality === 'low' ? 1 : 1.3]}
-            frameloop={hidden ? 'never' : 'demand'}
+            dpr={quality === 'low' ? 0.75 : [1, quality === 'high' ? 1.6 : 1.3]}
+            frameloop={hidden || !inView ? 'never' : 'demand'}
             camera={{ position: [0.35, 3.2, 8.6], fov: 35, near: 0.1, far: 60 }}
             gl={{ antialias: true, powerPreference: 'high-performance' }}
           >
@@ -600,41 +621,44 @@ export default function TwinScene({
               shadow-bias={-0.0005}
             />
             <directionalLight position={[5, 4, -3]} intensity={2.2} color="#e8f7ff" />
-            <Environment resolution={128} frames={1}>
-              <mesh>
-                <sphereGeometry args={[30, 16, 16]} />
-                <meshBasicMaterial color="#ccd9e0" side={BackSide} />
-              </mesh>
-              <Lightformer
-                intensity={2.8}
-                position={[0, 5, 0]}
-                rotation={[Math.PI / 2, 0, 0]}
-                scale={[10, 4, 1]}
-              />
-              <Lightformer
-                intensity={2}
-                position={[0, 2, 7]}
-                rotation={[0, Math.PI, 0]}
-                scale={[15, 7, 1]}
-              />
-              <Lightformer
-                intensity={2.5}
-                position={[-6, 2, 2]}
-                rotation={[0, Math.PI / 2, 0]}
-                scale={[4, 5, 1]}
-              />
-              <Lightformer
-                intensity={2}
-                position={[5, 3, -2]}
-                rotation={[0, -Math.PI / 3, 0]}
-                scale={[5, 3, 1]}
-              />
-            </Environment>
+            {quality !== 'low' && (
+              <Environment resolution={128} frames={1}>
+                <mesh>
+                  <sphereGeometry args={[30, 16, 16]} />
+                  <meshBasicMaterial color="#ccd9e0" side={BackSide} />
+                </mesh>
+                <Lightformer
+                  intensity={2.8}
+                  position={[0, 5, 0]}
+                  rotation={[Math.PI / 2, 0, 0]}
+                  scale={[10, 4, 1]}
+                />
+                <Lightformer
+                  intensity={2}
+                  position={[0, 2, 7]}
+                  rotation={[0, Math.PI, 0]}
+                  scale={[15, 7, 1]}
+                />
+                <Lightformer
+                  intensity={2.5}
+                  position={[-6, 2, 2]}
+                  rotation={[0, Math.PI / 2, 0]}
+                  scale={[4, 5, 1]}
+                />
+                <Lightformer
+                  intensity={2}
+                  position={[5, 3, -2]}
+                  rotation={[0, -Math.PI / 3, 0]}
+                  scale={[5, 3, 1]}
+                />
+              </Environment>
+            )}
             <CameraRig preset={preset} explode={explode} selected={selected} reset={reset} />
             <Laboratory />
             <Suspense fallback={null}>
               <Apparatus
-                {...{ explode, labels, flow, thermal, selected, hidden, concept, hiddenParts }}
+                {...{ explode, labels, flow, thermal, selected, concept, hiddenParts }}
+                hidden={hidden || !inView}
                 select={setSelected}
               />
             </Suspense>
@@ -805,3 +829,5 @@ export default function TwinScene({
     </section>
   );
 }
+
+export default memo(TwinScene);

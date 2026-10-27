@@ -13,7 +13,9 @@ export default defineConfig({
     viewport: { width: 1536, height: 1024 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    launchOptions: { args: ['--enable-unsafe-swiftshader'] },
+    launchOptions: {
+      args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'],
+    },
   },
   webServer: deployedURL
     ? undefined

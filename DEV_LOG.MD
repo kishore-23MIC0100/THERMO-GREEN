@@ -47,3 +47,9 @@
 - Preserved the provided standalone Arduino sketch under firmware/arduino and compiled its esp32dev target successfully: 21,920 bytes RAM, 290,397 bytes flash. No flash or physical relay/sensor verification was performed.
 - The targeted USB browser scenarios pass, including delayed open with no premature heartbeat writes, fault=6/armed=false safe reset, current temperature/ADC propagation into the twin, and write-failure transition to DISCONNECTED. The expanded unit suite passes 63 tests and native firmware safety checks.
 - Final combined release verification: lint, format check, production build, 63 frontend/domain tests, native firmware safety tests, and all 10 browser scenarios passed. The standalone Arduino esp32dev target compiled successfully; both firmware variants are included in CI. Physical device commissioning remains pending.
+
+## 27 October 2026 — software-renderer follow-up
+
+- The first cloud run of the USB release compiled both firmware variants and passed application static/unit/build checks, but its browser suite exposed excessive rendering cost on the Linux software renderer. Local browser success did not establish cloud success.
+- Added separate low-detail GLBs (approximately 580 KB versus 2.7 MB), simpler low-quality materials and lighting, memoized apparatus assets, stable tube curves, and off-screen canvas suspension. Detailed medium/high assets remain available. Heartbeat, watchdog, stale-data, acknowledgement and trip limits are unchanged.
+- Made Playwright explicitly use SwiftShader and reran all 10 browser scenarios locally: passed. Cloud verification is recorded with the follow-up commit's GitHub Actions result.

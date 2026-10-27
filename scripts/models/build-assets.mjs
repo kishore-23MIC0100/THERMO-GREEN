@@ -36,9 +36,10 @@ const M = {
   led: material('power-led', '#2c5347', 0.05, 0.3),
   relay: material('relay-enclosure', '#0e79b6', 0.05, 0.38),
 };
+let lowDetail = false;
 const box = (g, name, p, s, mat = M.alu, radius = 0.025) => {
   const mesh = new T.Mesh(
-    Math.min(...s) < 0.035
+    lowDetail || Math.min(...s) < 0.035
       ? new T.BoxGeometry(...s)
       : new RoundedBoxGeometry(...s, 2, Math.min(radius, ...s.map((v) => v / 3))),
     mat,
@@ -49,7 +50,10 @@ const box = (g, name, p, s, mat = M.alu, radius = 0.025) => {
   return mesh;
 };
 const cyl = (g, name, p, r, h, mat = M.steel, axis = 'y', segments = 32, r2 = r) => {
-  const mesh = new T.Mesh(new T.CylinderGeometry(r2, r, h, segments), mat);
+  const mesh = new T.Mesh(
+    new T.CylinderGeometry(r2, r, h, lowDetail ? Math.min(segments, 12) : segments),
+    mat,
+  );
   mesh.name = name;
   mesh.position.set(...p);
   if (axis === 'x') mesh.rotation.z = Math.PI / 2;
@@ -58,7 +62,10 @@ const cyl = (g, name, p, r, h, mat = M.steel, axis = 'y', segments = 32, r2 = r)
   return mesh;
 };
 const ring = (g, name, p, r, tube, mat = M.steel, axis = 'y') => {
-  const mesh = new T.Mesh(new T.TorusGeometry(r, tube, 8, 48), mat);
+  const mesh = new T.Mesh(
+    new T.TorusGeometry(r, tube, lowDetail ? 4 : 8, lowDetail ? 16 : 48),
+    mat,
+  );
   mesh.name = name;
   mesh.position.set(...p);
   if (axis === 'y') mesh.rotation.x = Math.PI / 2;
@@ -67,6 +74,10 @@ const ring = (g, name, p, r, tube, mat = M.steel, axis = 'y') => {
   return mesh;
 };
 function screw(g, x, y, z, axis = 'y', r = 0.035) {
+  if (lowDetail) {
+    cyl(g, 'socket-head', [x, y, z], r, 0.035, M.dark, axis, 6);
+    return;
+  }
   cyl(g, 'washer', [x, y, z], r * 1.4, 0.014, M.steel, axis);
   const p = axis === 'y' ? [x, y + 0.015, z] : axis === 'x' ? [x + 0.015, y, z] : [x, y, z + 0.015];
   cyl(g, 'socket-head', p, r, 0.038, M.dark, axis, 6);
@@ -230,7 +241,7 @@ function reactor() {
   const vessel = new T.Mesh(
     new T.LatheGeometry(
       profile.map((p) => new T.Vector2(...p)),
-      96,
+      lowDetail ? 32 : 96,
     ),
     glass,
   );
@@ -384,6 +395,13 @@ function optimize(group) {
   const batches = new Map();
   group.traverse((obj) => {
     if (obj.isMesh) {
+      if (
+        lowDetail &&
+        /machining-line|printed-rating|pin-silkscreen|solder-pad|smd-capacitor|ic-lead|mesh-vent|sensor-mesh|antenna-trace|antenna-return|ceramic-trace/.test(
+          obj.name,
+        )
+      )
+        return;
       const transformed = obj.geometry.clone().applyMatrix4(obj.matrixWorld);
       const geometry = transformed.index ? transformed.toNonIndexed() : transformed;
       const key = obj.material.name;
@@ -405,22 +423,26 @@ function optimize(group) {
 }
 const output = new URL('../../frontend/public/models/', import.meta.url);
 await mkdir(output, { recursive: true });
-for (const [name, assembly] of Object.entries({
-  heater: heater(),
-  'heat-block': block('AluminiumHeatBlock'),
-  'pump-r385': pump(),
-  reactor: reactor(),
-  esp32: electronics(),
-  probe: probe(),
-  mq135: mq135(),
-  relay: relay(),
-  platform: platform(),
-  supply: supply(),
-})) {
-  const asset = optimize(assembly);
-  const bytes = await new GLTFExporter().parseAsync(asset, { binary: true });
-  await writeFile(new URL(`${name}.glb`, output), Buffer.from(bytes));
-  console.log(
-    `${name}.glb · ${(bytes.byteLength / 1024).toFixed(0)} KB · ${asset.children.length} material batches`,
-  );
+for (const detail of ['full', 'low']) {
+  lowDetail = detail === 'low';
+  for (const [name, assembly] of Object.entries({
+    heater: heater(),
+    'heat-block': block('AluminiumHeatBlock'),
+    'pump-r385': pump(),
+    reactor: reactor(),
+    esp32: electronics(),
+    probe: probe(),
+    mq135: mq135(),
+    relay: relay(),
+    platform: platform(),
+    supply: supply(),
+  })) {
+    const asset = optimize(assembly);
+    const bytes = await new GLTFExporter().parseAsync(asset, { binary: true });
+    const filename = `${name}${lowDetail ? '-low' : ''}.glb`;
+    await writeFile(new URL(filename, output), Buffer.from(bytes));
+    console.log(
+      `${filename} · ${(bytes.byteLength / 1024).toFixed(0)} KB · ${asset.children.length} material batches`,
+    );
+  }
 }

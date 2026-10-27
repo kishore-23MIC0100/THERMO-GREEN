@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { Mesh, MeshPhysicalMaterial, MeshStandardMaterial } from 'three';
 
-export function EquipmentAsset({
+export const EquipmentAsset = memo(function EquipmentAsset({
   name,
   active = false,
   quality = 'medium',
@@ -11,7 +11,7 @@ export function EquipmentAsset({
   active?: boolean;
   quality?: string;
 }) {
-  const { scene } = useGLTF(`/models/${name}.glb`);
+  const { scene } = useGLTF(`/models/${name}${quality === 'low' ? '-low' : ''}.glb`);
   const instance = useMemo(() => {
     const copy = scene.clone(true);
     copy.traverse((object) => {
@@ -20,10 +20,23 @@ export function EquipmentAsset({
       object.receiveShadow = true;
       const source = object.material as MeshStandardMaterial;
       object.material = source.clone();
+      if (quality === 'low') {
+        const finish = new MeshStandardMaterial({
+          name: source.name,
+          color: source.color,
+          metalness: Math.min(source.metalness, 0.25),
+          roughness: 0.5,
+          ...(source.name === 'borosilicate-glass'
+            ? { transparent: true, opacity: 0.17, depthWrite: false }
+            : {}),
+        });
+        (object.material as MeshStandardMaterial).dispose();
+        object.material = finish;
+      }
       if (source.name === 'borosilicate-glass') object.castShadow = false;
     });
     return copy;
-  }, [scene]);
+  }, [scene, quality]);
   useEffect(() => {
     instance.traverse((object) => {
       if (!(object instanceof Mesh)) return;
@@ -53,4 +66,4 @@ export function EquipmentAsset({
     [instance],
   );
   return <primitive object={instance} />;
-}
+});
