@@ -384,7 +384,13 @@ test('waits for USB open, safely resets Arduino boot latches while unarmed, and 
   await page.evaluate(() => window.serialRecoveryFixture.releaseOpen());
   await expect(page.locator('.header-status')).toContainText('FAULT');
   await expect(page.locator('.fault-banner')).toContainText('latest probe values are valid');
-  await expect(page.getByText(/Relay safety lock is enabled/)).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toContainText(
+    'OFF · Relay locked',
+  );
+  await expect(page.getByRole('link', { name: 'Relay verification steps' })).toHaveAttribute(
+    'href',
+    '/hardware',
+  );
   await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeDisabled();
   await expect(page.locator('.error-banner')).toHaveCount(0);
   await expect(
@@ -394,6 +400,9 @@ test('waits for USB open, safely resets Arduino boot latches while unarmed, and 
   await page.getByRole('button', { name: 'Confirm reset', exact: true }).click();
   await expect(page.locator('.fault-banner')).toHaveCount(0);
   await expect(page.locator('.header-status')).toContainText('LIVE');
+  await expect(page.locator('.heater-feedback')).toContainText(
+    'reconnecting USB or resetting a fault cannot unlock it',
+  );
   await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeDisabled();
   await expect(
     page.locator('.status-card').filter({ hasText: 'Heater Status' }).locator('strong'),
@@ -412,5 +421,14 @@ test('waits for USB open, safely resets Arduino boot latches while unarmed, and 
   await expect(page.locator('.header-status')).toContainText('DISCONNECTED');
   await expect(page.locator('.error-banner')).toContainText('USB connection ended');
   await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toBeDisabled();
+  await expect(page.getByRole('switch', { name: 'Heater power', exact: true })).toContainText(
+    'Unavailable',
+  );
+  await expect(page.getByRole('link', { name: 'Relay verification steps' })).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      window.serialRecoveryFixture.writes.some((c) => c.cmd === 'heater' && c.value === 1),
+    ),
+  ).toBe(false);
   expect(errors).toEqual([]);
 });

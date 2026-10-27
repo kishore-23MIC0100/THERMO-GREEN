@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { Link } from 'react-router-dom';
 import { useRuntime, issue, canHeat, heaterBlockReason } from '../stores/runtime';
 import { useCompute } from '../compute/store';
 import { SAFETY } from '../lib/config';
@@ -9,6 +10,7 @@ export function HeaterPower() {
   const connected = s.transportReady && ['LIVE', 'SIMULATED'].includes(s.mode);
   const fresh = connected && !!s.telemetry && s.now - s.receivedAt <= SAFETY.staleMs;
   const on = fresh && s.telemetry?.heater === 1;
+  const locked = fresh && s.telemetry?.armed === false;
   const pending = s.commands.find(
     (command) => command.status === 'pending' && command.value != null,
   );
@@ -20,7 +22,7 @@ export function HeaterPower() {
     useRuntime.setState({ auto: false, profile: 'IDLE', burstUntil: 0 });
     void issue({ cmd: 'heater', value });
   };
-  const state = !fresh ? 'Unavailable' : on ? 'ON' : 'OFF';
+  const state = !fresh ? 'Unavailable' : on ? 'ON' : locked ? 'OFF · Relay locked' : 'OFF';
   return (
     <div className="heater-power-controls">
       <button
@@ -48,6 +50,11 @@ export function HeaterPower() {
             ? (heaterBlockReason() ?? 'Ready. Toggle ON to send a heater request.')
             : 'Firmware reports ON. Toggle OFF to stop heating.'}
       </p>
+      {locked && (
+        <Link className="text-link" to="/hardware">
+          Relay verification steps
+        </Link>
+      )}
       <small>
         Switch position follows fresh firmware telemetry; relay contacts and power are not
         independently measured.

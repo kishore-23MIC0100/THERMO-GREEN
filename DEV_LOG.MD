@@ -73,3 +73,10 @@
 - Removed the separate Stop Heater button as requested. The single telemetry-driven switch can send OFF while ON is pending, including before any ON telemetry arrives. Header E-STOP remains independent. The physical relay verification flag stays false.
 - Added coverage for pending-ON cancellation using the single switch and for populated record pages: notebook rename, event filtering, CSV export, contrast scans, route scroll reset, and mobile overflow.
 - Final local verification passed: production build, types, lint, formatting, 64 unit tests, native firmware safety checks and all 14 browser scenarios. Populated records pages and the active heater state pass the tested WCAG 2 A/AA scans. Reviewed actual screenshots of all three updated pages.
+
+
+## 27 October 2026 — relay lock status clarification
+
+- Quick Controls now shows OFF · Relay locked for fresh heater=0/armed=false telemetry, with a direct Hardware Setup link. Removed the duplicate warning paragraph and clarified that USB connection and safe fault reset cannot change firmware arming.
+- Preserved both firmware verification locks because physical relay verification remains outstanding. No board flash, heater activation, or fabricated USB-derived heater state was performed.
+- Validation: strict typecheck, ESLint, production build, 64 unit tests, native firmware safety tests, and the targeted USB browser test passed. The browser test verifies fault reset while locked, no ON command, and unavailable feedback after disconnect.

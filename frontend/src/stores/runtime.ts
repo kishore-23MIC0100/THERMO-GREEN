@@ -306,7 +306,7 @@ export function heaterBlockReason(): string | null {
     return 'Valid temperature probes are required; inspect the sensor wiring.';
   if (t.fault) return 'Resolve the fault and explicitly reset the safety latch before heating.';
   if (t.armed !== true)
-    return 'Relay verification lock is enabled. Complete physical commissioning before changing firmware.';
+    return 'ESP32 is connected, but its firmware has not enabled the relay (armed=false). Physical relay verification and a verified firmware update are required; reconnecting USB or resetting a fault cannot unlock it.';
   if (s.recordingError) return 'Recording failed; resolve browser storage before heating.';
   if (
     t.temp >= Math.min(ceiling, SAFETY.tripC - SAFETY.setpointMarginC) ||

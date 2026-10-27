@@ -88,7 +88,11 @@ export function SystemStatus() {
             <strong className={t?.heater ? 'orange' : ''}>
               {t ? (t.heater ? 'ON' : 'OFF') : 'UNKNOWN'}
             </strong>
-            <small>Firmware-reported relay state</small>
+            <small>
+              {t?.armed === false && !t.heater
+                ? 'Relay locked · physical verification required'
+                : 'Firmware-reported relay state'}
+            </small>
             <Badge claim={s.claim} />
           </div>
           <Sparkline values={trend.map((p) => p.heater)} color="#ff8a3d" />
@@ -343,13 +347,6 @@ export function QuickControls() {
           {settings.requestedTargetC > settings.high &&
             ' Higher requests are limited by the current hardware safety configuration.'}
         </small>
-        {s.telemetry?.armed === false && (
-          <p className="warning-text">
-            Relay safety lock is enabled (armed=false). Sensor monitoring and safe fault reset
-            remain available. Heater activation stays blocked until physical relay verification and
-            an approved firmware update.
-          </p>
-        )}
         {s.telemetry?.fault ? (
           <>
             <button disabled={!isResettable() || pending} onClick={() => setConfirm(true)}>

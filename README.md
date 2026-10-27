@@ -34,6 +34,8 @@ Quick Controls accepts a **requested target from 25 to 50 °C**. It displays the
 
 The **Heater power** switch follows fresh firmware-reported ON/OFF state. A click sends a request; it does not optimistically claim the relay changed. Selecting the toggle again during a pending ON request cancels that request and sends OFF. Manual switching cancels automatic compute demand; Quick Controls has a single ON/OFF switch. Rejected, missing or mismatched acknowledgements request OFF and remain visible for inspection. A manual OFF stays in control until the operator explicitly enables heating or compute coupling again. Real heating remains locked until physical relay commissioning and a verified firmware build; simulation can demonstrate the full flow without energizing hardware.
 
+When fresh telemetry reports `heater=0` and `armed=false`, Quick Controls shows **OFF · Relay locked** and links to Hardware Setup. USB connection, fault reset, and heater activation are separate states. Disconnecting makes current heater feedback unavailable; it cannot prove the physical relay is OFF.
+
 The training demo now plots actual per-epoch mean squared error, reports the matching coefficient and loss, and stops at MSE ≤ 10⁻⁶ or 300 epochs. The requested load controls epoch cadence. Inference remains a separate numerical workload. Neither is a fine-tune of the optional Ollama model.
 
 ## Connect real hardware
